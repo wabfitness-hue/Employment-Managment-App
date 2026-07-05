@@ -398,6 +398,7 @@ export function PersonDetailPage() {
           <Card>
             <CardHeader title="Details" />
             <div className="space-y-2.5">
+              <InfoRow label="Job title" value={person.job_title} />
               <InfoRow label="Email" value={person.email} />
               <InfoRow label="Phone" value={person.phone} />
               <InfoRow label="Department" value={person.department} />
