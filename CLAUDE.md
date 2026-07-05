@@ -81,7 +81,7 @@ rather than a Postgres enum type — simpler to extend.
 - **Authenticated images**: `<img src>` can't send the auth header. Use the
   `AuthImg` component (axios blob fetch → object URL). `getPhotoUrl` returns a path
   relative to the axios baseURL `/api/v1`.
-- **Employee IDs**: letter prefix + 5 random digits (e.g. `A00001`), generated in
+- **Employee IDs**: letter prefix + 7 random digits (e.g. `A0000001`), generated in
   `models/id_prefix.py`; uniqueness retried in `services/people.py`.
 - **TOTP**: `verify_mfa_token` uses `valid_window=2` for clock drift.
 - **Config refuses to boot** on default `SECRET_KEY`/`JWT_SECRET_KEY` or `*` in

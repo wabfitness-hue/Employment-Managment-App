@@ -38,7 +38,7 @@ def _get_company_or_404(db: Session, company_id: str) -> Company:
 def _generate_employee_id(db: Session, prefix: IdPrefix) -> str:
     """
     Generate a random (non-sequential) ID for a prefix.
-    Loops on collision (extremely rare with 100,000 possible suffixes) to guarantee uniqueness.
+    Loops on collision (extremely rare with 10,000,000 possible suffixes) to guarantee uniqueness.
     """
     for _ in range(50):
         candidate = prefix.generate_employee_id()

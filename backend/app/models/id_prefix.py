@@ -25,8 +25,8 @@ class IdPrefix(Base, UUIDMixin, TimestampMixin):
     people = relationship("Person", back_populates="prefix", lazy="dynamic")
 
     def generate_employee_id(self) -> str:
-        """Random 5-digit suffix (not sequential) so IDs aren't guessable / orderable."""
-        return f"{self.prefix}{random.randint(0, 99999):05d}"
+        """Random 7-digit suffix (not sequential) so IDs aren't guessable / orderable."""
+        return f"{self.prefix}{random.randint(0, 9999999):07d}"
 
     def __repr__(self):
         return f"<IdPrefix {self.prefix} ({self.label})>"

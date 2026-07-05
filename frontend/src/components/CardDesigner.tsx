@@ -30,7 +30,7 @@ const DEFAULTS: CardDesign = {
 }
 
 const SAMPLE_EMPLOYEE: CardPreview = {
-  person_id: '', person_type: 'employee', employee_id: 'A00001',
+  person_id: '', person_type: 'employee', employee_id: 'A0000001',
   full_name: 'Sample Employee', job_title: 'Job Title', department: 'Department',
   floor: '1', company_name: 'Your Company', contract_end: '2031-01-01',
   has_photo: false, is_contractor: false,
@@ -38,7 +38,7 @@ const SAMPLE_EMPLOYEE: CardPreview = {
 
 const SAMPLE_CONTRACTOR: CardPreview = {
   ...SAMPLE_EMPLOYEE, person_type: 'contractor', is_contractor: true,
-  employee_id: 'B00001', full_name: 'Sample Contractor', company_name: 'Contractor Company',
+  employee_id: 'B0000001', full_name: 'Sample Contractor', company_name: 'Contractor Company',
 }
 
 function SwatchRow({ colours, value, onChange }: { colours: string[]; value: string; onChange: (c: string) => void }) {
