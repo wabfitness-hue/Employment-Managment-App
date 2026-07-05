@@ -407,3 +407,56 @@ class TestDayOfWeekEnum:
     def test_values_are_lowercase(self):
         for day in DayOfWeek:
             assert day.value == day.value.lower()
+
+
+# ── evaluate_card_access deny-by-default (M2) ─────────────────────────────────
+
+class TestEvaluateCardAccess:
+    class _Contract:
+        is_expired = False
+
+    def _person(self, **kw):
+        import types
+        from app.models.person import PersonStatus
+        d = dict(status=PersonStatus.active, card_status="active",
+                 nfc_uid="PERM123", temp_nfc_uid=None,
+                 current_contract=self._Contract())
+        d.update(kw)
+        return types.SimpleNamespace(**d)
+
+    def test_matching_permanent_card_granted(self):
+        from app.services.people import evaluate_card_access
+        assert evaluate_card_access(self._person(), "PERM123") == (True, None)
+
+    def test_unknown_card_denied(self):
+        from app.services.people import evaluate_card_access
+        granted, reason = evaluate_card_access(self._person(), "STRANGER")
+        assert granted is False and "Unrecognised" in reason
+
+    def test_stolen_status_blocks_even_with_correct_card(self):
+        from app.services.people import evaluate_card_access
+        granted, reason = evaluate_card_access(self._person(card_status="stolen"), "PERM123")
+        assert granted is False and "stolen" in reason.lower()
+
+    def test_temp_card_out_temp_granted(self):
+        from app.services.people import evaluate_card_access
+        p = self._person(temp_nfc_uid="TEMP999", card_status="temporary")
+        assert evaluate_card_access(p, "TEMP999") == (True, None)
+
+    def test_temp_card_out_permanent_blocked(self):
+        from app.services.people import evaluate_card_access
+        p = self._person(temp_nfc_uid="TEMP999", card_status="temporary")
+        granted, reason = evaluate_card_access(p, "PERM123")
+        assert granted is False and "forgotten" in reason.lower()
+
+    def test_temp_card_out_unknown_denied(self):
+        from app.services.people import evaluate_card_access
+        p = self._person(temp_nfc_uid="TEMP999", card_status="temporary")
+        granted, reason = evaluate_card_access(p, "RANDOM")
+        assert granted is False and "Unrecognised" in reason
+
+    def test_inactive_holder_denied(self):
+        from app.services.people import evaluate_card_access
+        from app.models.person import PersonStatus
+        granted, reason = evaluate_card_access(self._person(status=PersonStatus.suspended), "PERM123")
+        assert granted is False

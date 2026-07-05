@@ -301,18 +301,27 @@ def evaluate_card_access(person: Person, tapped_uid: Optional[str] = None) -> tu
     if person.status != PersonStatus.active:
         return False, f"Access holder is {person.status.value}"
 
-    tapped = (tapped_uid or "").upper()
+    # Physical card state (lost/stolen/faulty/on_leave/returned/not_issued) blocks
+    # regardless of which card was tapped.
+    blocked = BLOCKING_CARD_STATUSES.get(person.card_status or "active")
+    if blocked:
+        return False, blocked
 
-    # While a temporary card is issued, only the temp card works — the forgotten
-    # permanent card is blocked so it can't also open doors.
+    tapped = (tapped_uid or "").upper()
+    perm = (person.nfc_uid or "").upper()
+    temp = (person.temp_nfc_uid or "").upper()
+
+    # Deny by default: the tap must match an expected card for this person.
     if person.temp_nfc_uid:
-        if tapped and tapped == (person.nfc_uid or "").upper():
+        # While a temporary card is out, ONLY the temp card works. The forgotten
+        # permanent card is explicitly blocked; anything else is unrecognised.
+        if perm and tapped == perm:
             return False, "Permanent card forgotten — temporary card in use"
-        # temp card (or unknown tap) falls through to the contract check below
+        if not temp or tapped != temp:
+            return False, "Unrecognised card"
     else:
-        blocked = BLOCKING_CARD_STATUSES.get(person.card_status or "active")
-        if blocked:
-            return False, blocked
+        if not perm or tapped != perm:
+            return False, "Unrecognised card"
 
     contract = person.current_contract
     if not contract:
