@@ -230,12 +230,14 @@ class TestPhotoStorage:
         save_photo(pid, buf.getvalue())
         assert photo_exists(pid)
 
-    def test_save_resizes_to_400x400(self):
+    def test_save_bounds_size_preserving_aspect(self):
         pid = str(uuid.uuid4())
         save_photo(pid, _make_jpeg_bytes(800, 600))
         data = get_photo_bytes(pid)
         result = Image.open(io.BytesIO(data))
-        assert result.size == (400, 400)
+        # Bounded to fit within 600×600, aspect (4:3) preserved
+        assert max(result.size) <= 600
+        assert result.size == (600, 450)
 
     def test_save_overwrites_existing_photo(self):
         pid = str(uuid.uuid4())
@@ -274,21 +276,21 @@ class TestPhotoStorage:
     def test_photo_not_exists_returns_false(self):
         assert photo_exists(str(uuid.uuid4())) is False
 
-    def test_landscape_photo_stored_as_square(self):
+    def test_landscape_photo_keeps_landscape_aspect(self):
         pid = str(uuid.uuid4())
         save_photo(pid, _make_jpeg_bytes(640, 480))
         data = get_photo_bytes(pid)
         img = Image.open(io.BytesIO(data))
         w, h = img.size
-        assert w == h == 400
+        assert w > h and max(w, h) <= 600  # aspect preserved, bounded
 
-    def test_portrait_photo_stored_as_square(self):
+    def test_portrait_photo_keeps_portrait_aspect(self):
         pid = str(uuid.uuid4())
         save_photo(pid, _make_jpeg_bytes(480, 640))
         data = get_photo_bytes(pid)
         img = Image.open(io.BytesIO(data))
         w, h = img.size
-        assert w == h == 400
+        assert h > w and max(w, h) <= 600  # aspect preserved, bounded
 
 
 # ── Outlook employee ID extraction ────────────────────────────────────────────

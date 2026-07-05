@@ -12,43 +12,45 @@ interface Props {
   onCancel: () => void
 }
 
-/** Output size of the cropped square (backend downsizes to 400×400). */
-const OUTPUT = 600
+/** Portrait aspect of the ID card photo slot (22×28mm) — passport proportions. */
+const PHOTO_ASPECT = 22 / 28
+/** Cap the longest side of the exported image (backend downsizes further). */
+const MAX_SIDE = 800
 
-function centeredSquare(width: number, height: number): PixelCrop {
-  const size = Math.min(width, height) * 0.8
-  return {
-    unit: 'px',
-    width: size,
-    height: size,
-    x: (width - size) / 2,
-    y: (height - size) / 2,
-  }
+function centeredPortrait(width: number, height: number): PixelCrop {
+  let h = height * 0.85
+  let w = h * PHOTO_ASPECT
+  if (w > width * 0.9) { w = width * 0.9; h = w / PHOTO_ASPECT }
+  return { unit: 'px', width: w, height: h, x: (width - w) / 2, y: (height - h) / 2 }
 }
 
 async function toBase64(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
   // Crop coords are relative to the displayed image; scale up to natural pixels.
   const scaleX = image.naturalWidth / image.width
   const scaleY = image.naturalHeight / image.height
+  const cw = crop.width * scaleX
+  const ch = crop.height * scaleY
+
+  const longest = Math.max(cw, ch)
+  const scale = longest > MAX_SIDE ? MAX_SIDE / longest : 1
+  const ow = Math.round(cw * scale)
+  const oh = Math.round(ch * scale)
 
   const canvas = document.createElement('canvas')
-  canvas.width = OUTPUT
-  canvas.height = OUTPUT
+  canvas.width = ow
+  canvas.height = oh
   const ctx = canvas.getContext('2d')!
   ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, OUTPUT, OUTPUT)
-  ctx.drawImage(
-    image,
-    crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY,
-    0, 0, OUTPUT, OUTPUT,
-  )
+  ctx.fillRect(0, 0, ow, oh)
+  ctx.drawImage(image, crop.x * scaleX, crop.y * scaleY, cw, ch, 0, 0, ow, oh)
   return canvas.toDataURL('image/jpeg', 0.92).split(',')[1]
 }
 
 /**
- * Interactive crop for ID photos. A square selection box the user can drag to
- * move and resize from any corner (aspect locked to 1:1 so the output stays
- * square — matching the backend's 400×400 storage). Frame head & shoulders.
+ * Interactive crop for ID photos. A portrait selection box (passport shape,
+ * matching the card's photo slot) that the user can move and resize by dragging
+ * any corner or edge. Aspect is kept portrait so it always fills the card slot
+ * without distortion.
  */
 export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
   const imgRef = useRef<HTMLImageElement>(null)
@@ -58,7 +60,7 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
 
   function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
     const { width, height } = e.currentTarget
-    const initial = centeredSquare(width, height)
+    const initial = centeredPortrait(width, height)
     setCrop(initial)
     setCompleted(initial)
   }
@@ -75,14 +77,14 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="crop-edges-only flex justify-center bg-gray-900 rounded-lg overflow-hidden">
+      <div className="flex justify-center bg-gray-900 rounded-lg overflow-hidden">
         <ReactCrop
           crop={crop}
           onChange={c => setCrop(c)}
           onComplete={c => setCompleted(c)}
-          aspect={1}
+          aspect={PHOTO_ASPECT}
           keepSelection
-          minWidth={40}
+          minWidth={30}
         >
           <img
             ref={imgRef}
@@ -95,7 +97,7 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
       </div>
 
       <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-        Drag an edge to resize, or drag the middle to move it. Frame the head and shoulders.
+        Drag any corner or edge to resize the box, or drag the middle to move it. Frame the head and shoulders.
       </p>
 
       <div className="flex gap-3">
