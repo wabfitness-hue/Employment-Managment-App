@@ -29,6 +29,17 @@ export function WebcamCapture({ onCapture, onCancel }: Props) {
   const start = useCallback(async (id?: string) => {
     setError('')
     stop()
+
+    // getUserMedia only exists in a secure context (https or localhost).
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(
+        window.isSecureContext
+          ? 'This browser does not support camera capture. Please upload a photo instead.'
+          : 'Camera needs a secure page (https or localhost). You appear to be on plain http — open the app at http://localhost, or upload a photo instead.'
+      )
+      return
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -50,8 +61,16 @@ export function WebcamCapture({ onCapture, onCancel }: Props) {
         const active = stream.getVideoTracks()[0]?.getSettings().deviceId
         if (active) setDeviceId(active)
       }
-    } catch {
-      setError('Camera not available. Check permissions, or upload a photo instead.')
+    } catch (e) {
+      const name = (e as DOMException)?.name
+      const messages: Record<string, string> = {
+        NotAllowedError: 'Camera permission was blocked. Click the camera icon in the address bar and allow access, then try again.',
+        NotFoundError: 'No camera was found on this device. Please upload a photo instead.',
+        NotReadableError: 'The camera is in use by another app (Teams, Zoom, etc.). Close it and try again.',
+        OverconstrainedError: 'The selected camera could not be started. Try a different camera.',
+        SecurityError: 'Camera blocked by browser security settings. Please upload a photo instead.',
+      }
+      setError(messages[name] ?? `Camera could not start (${name || 'unknown error'}). Please upload a photo instead.`)
     }
   }, [stop])
 
