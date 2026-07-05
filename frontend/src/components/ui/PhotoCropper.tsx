@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react'
-import Cropper, { type Area } from 'react-easy-crop'
+import { useState, useRef } from 'react'
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop'
+import 'react-image-crop/dist/ReactCrop.css'
 import { Button } from './Button'
-import { ZoomIn, ZoomOut, Check, X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 
 interface Props {
   /** Source image as a data/object URL to crop. */
@@ -14,14 +15,21 @@ interface Props {
 /** Output size of the cropped square (backend downsizes to 400×400). */
 const OUTPUT = 600
 
-async function getCroppedBase64(imageSrc: string, area: Area): Promise<string> {
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => resolve(img)
-    img.onerror = reject
-    img.src = imageSrc
-  })
+function centeredSquare(width: number, height: number): PixelCrop {
+  const size = Math.min(width, height) * 0.8
+  return {
+    unit: 'px',
+    width: size,
+    height: size,
+    x: (width - size) / 2,
+    y: (height - size) / 2,
+  }
+}
+
+async function toBase64(image: HTMLImageElement, crop: PixelCrop): Promise<string> {
+  // Crop coords are relative to the displayed image; scale up to natural pixels.
+  const scaleX = image.naturalWidth / image.width
+  const scaleY = image.naturalHeight / image.height
 
   const canvas = document.createElement('canvas')
   canvas.width = OUTPUT
@@ -31,31 +39,35 @@ async function getCroppedBase64(imageSrc: string, area: Area): Promise<string> {
   ctx.fillRect(0, 0, OUTPUT, OUTPUT)
   ctx.drawImage(
     image,
-    area.x, area.y, area.width, area.height,
+    crop.x * scaleX, crop.y * scaleY, crop.width * scaleX, crop.height * scaleY,
     0, 0, OUTPUT, OUTPUT,
   )
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
-  return dataUrl.split(',')[1]
+  return canvas.toDataURL('image/jpeg', 0.92).split(',')[1]
 }
 
 /**
- * Interactive crop + zoom for ID photos. Square (1:1) output so the framing the
- * user chooses is preserved by the backend (which stores a 400×400 square). An
- * oval guide helps line up a passport-style head-and-shoulders shot.
+ * Interactive crop for ID photos. A square selection box the user can drag to
+ * move and resize from any corner (aspect locked to 1:1 so the output stays
+ * square — matching the backend's 400×400 storage). Frame head & shoulders.
  */
 export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
-  const [crop, setCrop] = useState({ x: 0, y: 0 })
-  const [zoom, setZoom] = useState(1)
-  const [area, setArea] = useState<Area | null>(null)
+  const imgRef = useRef<HTMLImageElement>(null)
+  const [crop, setCrop] = useState<Crop>()
+  const [completed, setCompleted] = useState<PixelCrop>()
   const [saving, setSaving] = useState(false)
 
-  const onComplete = useCallback((_: Area, pixels: Area) => setArea(pixels), [])
+  function onImageLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const { width, height } = e.currentTarget
+    const initial = centeredSquare(width, height)
+    setCrop(initial)
+    setCompleted(initial)
+  }
 
   async function confirm() {
-    if (!area) return
+    if (!imgRef.current || !completed?.width) return
     setSaving(true)
     try {
-      onDone(await getCroppedBase64(imageSrc, area))
+      onDone(await toBase64(imgRef.current, completed))
     } finally {
       setSaving(false)
     }
@@ -63,42 +75,31 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative w-full h-72 bg-gray-900 rounded-lg overflow-hidden">
-        <Cropper
-          image={imageSrc}
+      <div className="flex justify-center bg-gray-900 rounded-lg overflow-hidden">
+        <ReactCrop
           crop={crop}
-          zoom={zoom}
+          onChange={c => setCrop(c)}
+          onComplete={c => setCompleted(c)}
           aspect={1}
-          cropShape="round"
-          showGrid={false}
-          onCropChange={setCrop}
-          onZoomChange={setZoom}
-          onCropComplete={onComplete}
-        />
+          keepSelection
+          minWidth={40}
+        >
+          <img
+            ref={imgRef}
+            src={imageSrc}
+            alt="Crop"
+            onLoad={onImageLoad}
+            className="max-h-80 w-auto object-contain select-none"
+          />
+        </ReactCrop>
       </div>
 
       <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-        Drag to reposition · pinch or use the slider to zoom. Frame the head and shoulders inside the circle.
+        Drag a corner to resize the square, or drag the middle to move it. Frame the head and shoulders.
       </p>
 
-      {/* Zoom slider */}
-      <div className="flex items-center gap-3 px-1">
-        <ZoomOut className="h-4 w-4 text-gray-400 shrink-0" />
-        <input
-          type="range"
-          min={1}
-          max={3}
-          step={0.01}
-          value={zoom}
-          onChange={e => setZoom(Number(e.target.value))}
-          className="w-full accent-blue-600"
-          aria-label="Zoom"
-        />
-        <ZoomIn className="h-4 w-4 text-gray-400 shrink-0" />
-      </div>
-
       <div className="flex gap-3">
-        <Button className="flex-1" onClick={confirm} loading={saving} disabled={!area}>
+        <Button className="flex-1" onClick={confirm} loading={saving} disabled={!completed?.width}>
           <Check className="h-4 w-4" /> Use photo
         </Button>
         <Button variant="secondary" onClick={onCancel} disabled={saving}>
