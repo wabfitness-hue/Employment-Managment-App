@@ -30,8 +30,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=(self)"
-        # Bridge agent runs locally on user's machine — allow its WebSocket connection
-        csp_connect = "'self' ws://127.0.0.1:8765"
+        # Bridge agent runs locally on the user's machine — allow its WebSocket
+        # connection on both localhost hostnames (browsers treat them separately).
+        csp_connect = "'self' ws://localhost:8765 ws://127.0.0.1:8765"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "

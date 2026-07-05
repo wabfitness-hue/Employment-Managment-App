@@ -85,7 +85,9 @@ def get_mfa_provisioning_uri(secret: str, email: str) -> str:
 
 def verify_mfa_token(secret: str, token: str) -> bool:
     totp = pyotp.TOTP(secret)
-    return totp.verify(token, valid_window=2)
+    # valid_window=1 accepts the current code plus one step either side (~90s of
+    # clock drift) — enough for real drift without widening the brute-force window.
+    return totp.verify(token, valid_window=1)
 
 
 # ── Secure random ────────────────────────────────────────────────────────────

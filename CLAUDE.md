@@ -83,7 +83,7 @@ rather than a Postgres enum type — simpler to extend.
   relative to the axios baseURL `/api/v1`.
 - **Employee IDs**: letter prefix + 7 random digits (e.g. `A0000001`), generated in
   `models/id_prefix.py`; uniqueness retried in `services/people.py`.
-- **TOTP**: `verify_mfa_token` uses `valid_window=2` for clock drift.
+- **TOTP**: `verify_mfa_token` uses `valid_window=1` (~90s drift tolerance).
 - **Config refuses to boot** on default `SECRET_KEY`/`JWT_SECRET_KEY` or `*` in
   `CORS_ORIGINS` (see `core/config.py`). Real values live in `.env`.
 

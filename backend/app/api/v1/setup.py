@@ -312,6 +312,11 @@ def complete_setup(body: CompleteSetupRequest, db: Session = Depends(get_db)):
     if not admin:
         raise HTTPException(status_code=404, detail="Admin user not found.")
 
+    # Only valid during first-run setup: once MFA is enabled the account is set
+    # up, so this passwordless (TOTP-only) completion path must not be reusable.
+    if admin.mfa_enabled:
+        raise HTTPException(status_code=409, detail="Setup already completed. Log in normally.")
+
     from app.core.security import verify_mfa_token, create_access_token, create_refresh_token
     if not verify_mfa_token(admin.mfa_secret, body.mfa_token):
         raise HTTPException(status_code=401, detail="MFA token is invalid or expired.")

@@ -380,6 +380,14 @@ class TestSetupWizard:
         assert "access_token" in data
         assert data["role"] == "super_admin"
 
+        # Re-completing after setup must be rejected (no passwordless re-login).
+        token2 = pyotp.TOTP(mfa_secret).now()
+        r = client.post("/api/v1/setup/complete", json={
+            "admin_id": admin_id,
+            "mfa_token": token2,
+        })
+        assert r.status_code == 409
+
     def test_setup_blocked_after_completion(self, client):
         """After a super_admin exists, /setup/company must return 409."""
         import pyotp
