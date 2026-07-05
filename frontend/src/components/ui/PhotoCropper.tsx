@@ -75,7 +75,7 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-center bg-gray-900 rounded-lg overflow-hidden">
+      <div className="crop-edges-only flex justify-center bg-gray-900 rounded-lg overflow-hidden">
         <ReactCrop
           crop={crop}
           onChange={c => setCrop(c)}
@@ -95,7 +95,7 @@ export function PhotoCropper({ imageSrc, onDone, onCancel }: Props) {
       </div>
 
       <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-        Drag a corner to resize the square, or drag the middle to move it. Frame the head and shoulders.
+        Drag an edge to resize, or drag the middle to move it. Frame the head and shoulders.
       </p>
 
       <div className="flex gap-3">

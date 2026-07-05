@@ -16,3 +16,12 @@
     box-sizing: border-box;
   }
 }
+
+/* Photo cropper: show only the 4 edge handles (top/bottom/left/right),
+   hide the diagonal corner handles. */
+.crop-edges-only .ReactCrop__drag-handle.ord-nw,
+.crop-edges-only .ReactCrop__drag-handle.ord-ne,
+.crop-edges-only .ReactCrop__drag-handle.ord-sw,
+.crop-edges-only .ReactCrop__drag-handle.ord-se {
+  display: none;
+}
