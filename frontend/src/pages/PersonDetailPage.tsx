@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Edit, CreditCard, RefreshCw, Camera, Upload, Nfc, Power, Trash2, AlertTriangle, IdCard, Check } from 'lucide-react'
-import Webcam from 'react-webcam'
+import { WebcamCapture } from '../components/ui/WebcamCapture'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
@@ -43,7 +43,6 @@ export function PersonDetailPage() {
   const [tempUid, setTempUid] = useState('')
   const [tempReading, setTempReading] = useState(false)
   const [tempError, setTempError] = useState('')
-  const webcamRef = useRef<Webcam>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const { data: person, isLoading } = useQuery({
@@ -132,13 +131,6 @@ export function PersonDetailPage() {
     const reader = new FileReader()
     reader.onload = () => { setCropSrc(reader.result as string); setWebcamActive(false) }
     reader.readAsDataURL(file)
-  }
-
-  function handleWebcamCapture() {
-    const img = webcamRef.current?.getScreenshot()
-    if (!img) return
-    setCropSrc(img)      // send the capture to the cropper
-    setWebcamActive(false)
   }
 
   async function handleCroppedPhoto(b64: string) {
@@ -470,13 +462,10 @@ export function PersonDetailPage() {
               onCancel={() => setCropSrc(null)}
             />
           ) : webcamActive ? (
-            <div className="space-y-3">
-              <Webcam ref={webcamRef} screenshotFormat="image/jpeg" className="w-full rounded-lg" videoConstraints={{ facingMode: 'user' }} />
-              <div className="flex gap-3">
-                <Button className="flex-1" onClick={handleWebcamCapture}>Capture</Button>
-                <Button variant="secondary" onClick={() => setWebcamActive(false)}>Cancel</Button>
-              </div>
-            </div>
+            <WebcamCapture
+              onCapture={(dataUrl) => { setCropSrc(dataUrl); setWebcamActive(false) }}
+              onCancel={() => setWebcamActive(false)}
+            />
           ) : (
             <div className="flex flex-col gap-3">
               <Button onClick={() => setWebcamActive(true)}>
