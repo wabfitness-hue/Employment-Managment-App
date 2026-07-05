@@ -8,9 +8,14 @@ Outlook / Microsoft Graph API routes:
   POST /outlook/scan              — scan HR-Intake folder for photo emails
   GET  /outlook/scan/results/{job_id} — get scan results
 """
+import base64
+import hashlib
+import json
+import logging
 import secrets
 from typing import Optional
 
+import redis as _redis_lib
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -32,11 +37,48 @@ GRAPH_SCOPES = "offline_access Mail.ReadWrite User.Read"
 AUTH_URL_BASE = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 
-# In-memory PKCE/state store (single-user app — one pending OAuth at a time)
-_pending_state: dict[str, str] = {}   # state → owner_id
-
+logger = logging.getLogger("outlook")
 
 from app.core.request_ip import client_ip as _client_ip
+
+# ── OAuth state store (Redis, shared across workers, short TTL) ─────────────────
+# Holds {owner_id, code_verifier} per state so the CSRF `state` and the PKCE
+# verifier survive the round-trip to Microsoft even with multiple web workers.
+_STATE_TTL = 600  # 10 minutes
+
+
+def _oauth_redis() -> _redis_lib.Redis:
+    return _redis_lib.Redis.from_url(
+        settings.REDIS_URL, decode_responses=True,
+        socket_connect_timeout=2, socket_timeout=2,
+    )
+
+
+def _store_oauth_state(state: str, owner_id: str, verifier: str) -> None:
+    _oauth_redis().set(
+        f"oauth:state:{state}",
+        json.dumps({"owner_id": owner_id, "verifier": verifier}),
+        ex=_STATE_TTL, nx=True,
+    )
+
+
+def _pop_oauth_state(state: str) -> Optional[dict]:
+    r = _oauth_redis()
+    key = f"oauth:state:{state}"
+    val = r.get(key)
+    if val is None:
+        return None
+    r.delete(key)  # single-use
+    return json.loads(val)
+
+
+def _pkce_pair() -> tuple[str, str]:
+    """Return (code_verifier, code_challenge) for PKCE S256."""
+    verifier = secrets.token_urlsafe(64)  # 43–128 chars per RFC 7636
+    challenge = base64.urlsafe_b64encode(
+        hashlib.sha256(verifier.encode()).digest()
+    ).decode().rstrip("=")
+    return verifier, challenge
 
 
 # ── Connect ───────────────────────────────────────────────────────────────────
@@ -57,7 +99,12 @@ def outlook_connect(
         )
 
     state = secrets.token_urlsafe(32)
-    _pending_state[state] = str(current_user.id)
+    verifier, challenge = _pkce_pair()
+    try:
+        _store_oauth_state(state, str(current_user.id), verifier)
+    except _redis_lib.RedisError as exc:
+        logger.warning("outlook_connect: could not store OAuth state: %s", exc)
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please try again.")
 
     params = (
         f"client_id={settings.MS_CLIENT_ID}"
@@ -66,6 +113,8 @@ def outlook_connect(
         f"&response_mode=query"
         f"&scope={GRAPH_SCOPES.replace(' ', '%20')}"
         f"&state={state}"
+        f"&code_challenge={challenge}"
+        f"&code_challenge_method=S256"
         f"&prompt=select_account"
     )
     auth_url = f"{AUTH_URL_BASE}?{params}"
@@ -99,11 +148,17 @@ async def outlook_callback(
     if not code or not state:
         raise HTTPException(status_code=400, detail="Missing code or state parameter.")
 
-    owner_id = _pending_state.pop(state, None)
-    if not owner_id:
+    try:
+        pending = _pop_oauth_state(state)
+    except _redis_lib.RedisError as exc:
+        logger.warning("outlook_callback: could not read OAuth state: %s", exc)
+        raise HTTPException(status_code=503, detail="Service temporarily unavailable. Please reconnect.")
+    if not pending:
         raise HTTPException(status_code=400, detail="Invalid or expired OAuth state. Please reconnect.")
+    owner_id = pending["owner_id"]
+    code_verifier = pending["verifier"]
 
-    # Exchange code for tokens
+    # Exchange code for tokens (PKCE: send the code_verifier)
     import httpx
     token_data = {
         "client_id": settings.MS_CLIENT_ID,
@@ -112,6 +167,7 @@ async def outlook_callback(
         "redirect_uri": settings.MS_REDIRECT_URI,
         "grant_type": "authorization_code",
         "scope": GRAPH_SCOPES,
+        "code_verifier": code_verifier,
     }
     try:
         async with httpx.AsyncClient() as client:
@@ -119,7 +175,8 @@ async def outlook_callback(
             resp.raise_for_status()
             tokens = resp.json()
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Token exchange failed: {exc}")
+        logger.warning("outlook_callback: token exchange failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Token exchange with Microsoft failed. Please reconnect.")
 
     # Fetch the user's Outlook email address
     outlook_email = None
@@ -149,8 +206,8 @@ async def outlook_callback(
                detail={"outlook_email": outlook_email})
     db.commit()
 
-    # Redirect to the frontend settings page
-    return RedirectResponse(url="http://localhost:3000/settings/outlook?connected=true")
+    # Redirect back to the frontend settings page (same origin, served by Nginx)
+    return RedirectResponse(url="/settings?outlook=connected")
 
 
 # ── Status ────────────────────────────────────────────────────────────────────

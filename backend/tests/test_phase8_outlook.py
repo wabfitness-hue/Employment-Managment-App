@@ -294,3 +294,22 @@ class TestProcessIntakeEmails:
         assert len(results) == 1
         assert results[0]["status"] == "matched_no_valid_photo"
         assert results[0]["person_id"] == str(person.id)
+
+
+# ── PKCE (M5) ─────────────────────────────────────────────────────────────────
+
+class TestPKCE:
+    def test_challenge_is_s256_of_verifier(self):
+        import base64, hashlib
+        from app.api.v1.outlook import _pkce_pair
+        verifier, challenge = _pkce_pair()
+        expected = base64.urlsafe_b64encode(
+            hashlib.sha256(verifier.encode()).digest()
+        ).decode().rstrip("=")
+        assert challenge == expected
+        assert "=" not in challenge          # base64url, unpadded
+        assert 43 <= len(verifier) <= 128    # RFC 7636
+
+    def test_pairs_are_unique(self):
+        from app.api.v1.outlook import _pkce_pair
+        assert _pkce_pair()[0] != _pkce_pair()[0]
