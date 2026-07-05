@@ -9,7 +9,7 @@ import { Card, CardHeader } from '../components/ui/Card'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { PhotoCapture } from '../components/ui/PhotoCapture'
-import { getPerson, createPerson, updatePerson, uploadPhoto, uploadPhotoBase64, getPhotoUrl } from '../api/people'
+import { getPerson, createPerson, updatePerson, uploadPhotoBase64, getPhotoUrl } from '../api/people'
 import { quickPrefix } from '../api/auth'
 import { listCompanies, createCompany } from '../api/companies'
 
@@ -43,7 +43,6 @@ export function PersonFormPage() {
   const [addingCompany, setAddingCompany] = useState(false)
   const [companyError, setCompanyError] = useState('')
 
-  const pendingFile = useRef<File | null>(null)
   const pendingBase64 = useRef<string | null>(null)
 
   const { data: existing } = useQuery({
@@ -106,8 +105,6 @@ export function PersonFormPage() {
   async function uploadPendingPhoto(personId: string) {
     if (pendingBase64.current) {
       await uploadPhotoBase64(personId, pendingBase64.current)
-    } else if (pendingFile.current) {
-      await uploadPhoto(personId, pendingFile.current)
     }
   }
 
@@ -181,8 +178,7 @@ export function PersonFormPage() {
           <div className="flex justify-center py-2">
             <PhotoCapture
               currentUrl={isEdit && existing?.has_photo ? getPhotoUrl(id!) : undefined}
-              onFile={f => { pendingFile.current = f; pendingBase64.current = null }}
-              onBase64={b64 => { pendingBase64.current = b64; pendingFile.current = null }}
+              onBase64={b64 => { pendingBase64.current = b64 }}
             />
           </div>
           <p className="text-xs text-gray-400 text-center pb-2">

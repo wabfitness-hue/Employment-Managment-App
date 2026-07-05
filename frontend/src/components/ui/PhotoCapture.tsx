@@ -2,15 +2,16 @@ import { useRef, useState, useCallback } from 'react'
 import { Camera, Upload, X, RefreshCw } from 'lucide-react'
 import { Button } from './Button'
 import { AuthImg } from './AuthImg'
+import { PhotoCropper } from './PhotoCropper'
 
 interface Props {
   currentUrl?: string
-  onFile: (file: File) => void
   onBase64: (b64: string) => void
 }
 
-export function PhotoCapture({ currentUrl, onFile, onBase64 }: Props) {
-  const [mode, setMode] = useState<'idle' | 'camera' | 'preview'>('idle')
+export function PhotoCapture({ currentUrl, onBase64 }: Props) {
+  const [mode, setMode] = useState<'idle' | 'camera' | 'crop' | 'preview'>('idle')
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [clearedExisting, setClearedExisting] = useState(false)
   const [stream, setStream] = useState<MediaStream | null>(null)
@@ -50,10 +51,9 @@ export function PhotoCapture({ currentUrl, onFile, onBase64 }: Props) {
     c.getContext('2d')!.drawImage(v, 0, 0)
     const dataUrl = c.toDataURL('image/jpeg', 0.92)
     stopCamera()
-    setPreview(dataUrl)
-    setMode('preview')
-    // strip prefix → raw base64
-    onBase64(dataUrl.split(',')[1])
+    // Send to the cropper so the user can frame head & shoulders.
+    setCropSrc(dataUrl)
+    setMode('crop')
   }
 
   function retake() {
@@ -65,11 +65,17 @@ export function PhotoCapture({ currentUrl, onFile, onBase64 }: Props) {
     const f = e.target.files?.[0]
     if (!f) return
     if (f.size > 5 * 1024 * 1024) { alert('Photo must be under 5 MB'); return }
-    const url = URL.createObjectURL(f)
-    setPreview(url)
-    setMode('preview')
-    onFile(f)
+    const reader = new FileReader()
+    reader.onload = () => { setCropSrc(reader.result as string); setMode('crop') }
+    reader.readAsDataURL(f)
     e.target.value = ''
+  }
+
+  function onCropped(b64: string) {
+    setPreview(`data:image/jpeg;base64,${b64}`)
+    setCropSrc(null)
+    setMode('preview')
+    onBase64(b64)
   }
 
   function clear() {
@@ -77,6 +83,18 @@ export function PhotoCapture({ currentUrl, onFile, onBase64 }: Props) {
     setPreview(null)
     setMode('idle')
     setClearedExisting(true)
+  }
+
+  if (mode === 'crop' && cropSrc) {
+    return (
+      <div className="w-full max-w-sm">
+        <PhotoCropper
+          imageSrc={cropSrc}
+          onDone={onCropped}
+          onCancel={() => { setCropSrc(null); setMode('idle') }}
+        />
+      </div>
+    )
   }
 
   return (

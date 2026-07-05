@@ -6,9 +6,10 @@ import Webcam from 'react-webcam'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Modal } from '../components/ui/Modal'
+import { PhotoCropper } from '../components/ui/PhotoCropper'
 import { PersonTypeBadge, StatusBadge, ExpiryBadge } from '../components/ui/Badge'
 import { AuthImg } from '../components/ui/AuthImg'
-import { getPerson, getPhotoUrl, uploadPhoto, uploadPhotoBase64, assignNfc, setPersonStatus, deletePerson, setCardStatus, issueTempCard, returnTempCard } from '../api/people'
+import { getPerson, getPhotoUrl, uploadPhotoBase64, assignNfc, setPersonStatus, deletePerson, setCardStatus, issueTempCard, returnTempCard } from '../api/people'
 import { CARD_STATUSES } from '../types'
 import { renewContract } from '../api/contracts'
 import { downloadCard } from '../api/cards'
@@ -31,6 +32,7 @@ export function PersonDetailPage() {
 
   const [photoModal, setPhotoModal] = useState(false)
   const [webcamActive, setWebcamActive] = useState(false)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
   const [nfcModal, setNfcModal] = useState(false)
   const [nfcStatus, setNfcStatus] = useState<'idle' | 'waiting' | 'done' | 'error'>('idle')
   const [deleteModal, setDeleteModal] = useState(false)
@@ -125,19 +127,25 @@ export function PersonDetailPage() {
 
   const { sendReadOnce, setOnTap, status: bridgeStatus } = useBridgeStore()
 
-  async function handlePhotoFile(file: File) {
-    await uploadPhoto(id!, file)
-    qc.invalidateQueries({ queryKey: ['person', id] })
-    setPhotoModal(false)
+  function handlePhotoFile(file: File) {
+    // Load the file, then let the user crop to head & shoulders before upload.
+    const reader = new FileReader()
+    reader.onload = () => { setCropSrc(reader.result as string); setWebcamActive(false) }
+    reader.readAsDataURL(file)
   }
 
-  async function handleWebcamCapture() {
+  function handleWebcamCapture() {
     const img = webcamRef.current?.getScreenshot()
     if (!img) return
-    await uploadPhotoBase64(id!, img)
-    qc.invalidateQueries({ queryKey: ['person', id] })
-    setPhotoModal(false)
+    setCropSrc(img)      // send the capture to the cropper
     setWebcamActive(false)
+  }
+
+  async function handleCroppedPhoto(b64: string) {
+    await uploadPhotoBase64(id!, `data:image/jpeg;base64,${b64}`)
+    qc.invalidateQueries({ queryKey: ['person', id] })
+    setCropSrc(null)
+    setPhotoModal(false)
   }
 
   function startNfcEnrol() {
@@ -453,9 +461,15 @@ export function PersonDetailPage() {
       </div>
 
       {/* Photo Modal */}
-      <Modal open={photoModal} onClose={() => { setPhotoModal(false); setWebcamActive(false) }} title="Update photo">
+      <Modal open={photoModal} onClose={() => { setPhotoModal(false); setWebcamActive(false); setCropSrc(null) }} title="Update photo">
         <div className="space-y-4">
-          {webcamActive ? (
+          {cropSrc ? (
+            <PhotoCropper
+              imageSrc={cropSrc}
+              onDone={handleCroppedPhoto}
+              onCancel={() => setCropSrc(null)}
+            />
+          ) : webcamActive ? (
             <div className="space-y-3">
               <Webcam ref={webcamRef} screenshotFormat="image/jpeg" className="w-full rounded-lg" videoConstraints={{ facingMode: 'user' }} />
               <div className="flex gap-3">
