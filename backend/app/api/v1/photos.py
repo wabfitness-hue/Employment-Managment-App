@@ -25,14 +25,7 @@ from app.services import people as people_svc
 router = APIRouter(prefix="/photos", tags=["photos"])
 
 
-def _client_ip(request: Request) -> str:
-    direct_ip = request.client.host if request.client else "unknown"
-    trusted = get_settings().trusted_proxy_list
-    if direct_ip in trusted:
-        fwd = request.headers.get("X-Forwarded-For")
-        if fwd:
-            return fwd.split(",")[0].strip()
-    return direct_ip
+from app.core.request_ip import client_ip as _client_ip
 
 
 class WebcamUploadRequest(BaseModel):
@@ -109,7 +102,8 @@ def serve_photo(
     Serves the photo for a person. Always goes through auth —
     photos are never accessible without a valid session token.
     """
-    people_svc.get_person_or_404(db, person_id)
+    person = people_svc.get_person_or_404(db, person_id)
+    people_svc.authorize_person_access(current_user, person)
 
     if not photo_exists(person_id):
         raise HTTPException(status_code=404, detail="No photo on file for this person.")

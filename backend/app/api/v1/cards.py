@@ -22,9 +22,7 @@ from app.models.card_event import CardEvent, CardEventType
 router = APIRouter(prefix="/cards", tags=["cards"])
 
 
-def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For")
-    return fwd.split(",")[0].strip() if fwd else request.client.host
+from app.core.request_ip import client_ip as _client_ip
 
 
 class BulkCardRequest(BaseModel):
@@ -78,6 +76,9 @@ def preview_card(
     current_user: AppUser = Depends(require_any_role),
 ):
     """Returns card data as JSON so the frontend can render a live preview."""
+    from app.services import people as people_svc
+    person = people_svc.get_person_or_404(db, person_id)
+    people_svc.authorize_person_access(current_user, person)
     card = build_card_data(db, person_id)
     return {
         "person_id": card.person_id,

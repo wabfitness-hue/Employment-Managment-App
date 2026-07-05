@@ -40,9 +40,7 @@ MAGIC_BYTES = {
 }
 
 
-def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For")
-    return fwd.split(",")[0].strip() if fwd else request.client.host
+from app.core.request_ip import client_ip as _client_ip
 
 
 def _validate_magic(fmt: str, data: bytes) -> None:

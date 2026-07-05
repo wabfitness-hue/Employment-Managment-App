@@ -36,9 +36,7 @@ TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 _pending_state: dict[str, str] = {}   # state → owner_id
 
 
-def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For")
-    return fwd.split(",")[0].strip() if fwd else request.client.host
+from app.core.request_ip import client_ip as _client_ip
 
 
 # ── Connect ───────────────────────────────────────────────────────────────────

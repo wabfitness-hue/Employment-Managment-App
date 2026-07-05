@@ -419,3 +419,31 @@ class TestGetPerson:
         with pytest.raises(HTTPException) as exc:
             get_person_or_404(db, str(uuid.uuid4()))
         assert exc.value.status_code == 404
+
+
+# ── Manager department-scope authorization (M1) ───────────────────────────────
+
+class TestPersonAccessAuthorization:
+    """authorize_person_access must block managers outside their department."""
+    def _mgr(self, dept):
+        return AppUser(email=f"m{dept}@x.com", display_name="M",
+                       password_hash="x", role=UserRole.manager, department_scope=dept)
+
+    class _P:
+        def __init__(self, dept): self.department = dept
+
+    def test_manager_blocked_outside_department(self):
+        from app.services.people import authorize_person_access
+        with pytest.raises(HTTPException) as exc:
+            authorize_person_access(self._mgr("Sales"), self._P("Engineering"))
+        assert exc.value.status_code == 403
+
+    def test_manager_allowed_own_department(self):
+        from app.services.people import authorize_person_access
+        authorize_person_access(self._mgr("Sales"), self._P("Sales"))  # no raise
+
+    def test_hr_admin_unrestricted(self):
+        from app.services.people import authorize_person_access
+        hr = AppUser(email="hr@x.com", display_name="HR",
+                     password_hash="x", role=UserRole.hr_admin)
+        authorize_person_access(hr, self._P("Engineering"))  # no raise

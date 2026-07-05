@@ -334,6 +334,20 @@ def get_person_or_404(db: Session, person_id: str) -> Person:
     return person
 
 
+def authorize_person_access(current_user, person) -> None:
+    """
+    Enforce manager department scope for any single-person access (profile, photo,
+    card preview, etc.). Managers may only reach people in their own department;
+    other roles are unrestricted. Raises PermissionError (403) otherwise.
+    """
+    from app.models.app_user import UserRole
+    from app.core.dependencies import PermissionError
+
+    if current_user.role == UserRole.manager and current_user.department_scope:
+        if person.department != current_user.department_scope:
+            raise PermissionError("You can only access employees in your department.")
+
+
 def list_people(db: Session, filters: PersonFilter, current_user_role: str, current_user_dept: Optional[str]):
     query = db.query(Person)
 

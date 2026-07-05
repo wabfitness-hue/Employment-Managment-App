@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.database import get_db
-from app.models.app_user import AppUser, UserRole
+from app.models.app_user import AppUser
 from app.core.dependencies import get_current_user, require_hr_or_above, require_any_role
 from app.core.audit import log_action
 from app.services import people as svc
@@ -30,9 +30,7 @@ from app.models.access import PersonAccess
 router = APIRouter(prefix="/people", tags=["people"])
 
 
-def _client_ip(request: Request) -> str:
-    fwd = request.headers.get("X-Forwarded-For")
-    return fwd.split(",")[0].strip() if fwd else request.client.host
+from app.core.request_ip import client_ip as _client_ip
 
 
 def _build_response(person: Person, db: Session) -> PersonResponse:
@@ -179,12 +177,16 @@ def get_by_nfc(
     nfc_uid: str,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: AppUser = Depends(require_any_role),
+    current_user: AppUser = Depends(require_hr_or_above),
 ):
     """
     Reader/kiosk lookup. Returns an access decision alongside the person, so a
     lost/stolen/faulty card (or an inactive holder) is denied at the door even
     though the card physically reads.
+
+    Restricted to HR-admin-or-above: this returns a full person record for any
+    card UID (a door-reader/security function), so it must not be reachable by
+    department-scoped managers as an IDOR pivot.
     """
     person = svc.lookup_by_nfc(db, nfc_uid)
     granted, denied_reason = svc.evaluate_card_access(person, nfc_uid)
@@ -216,11 +218,7 @@ def get_person(
     current_user: AppUser = Depends(require_any_role),
 ):
     person = svc.get_person_or_404(db, person_id)
-    # Managers can only view their own department
-    if current_user.role == UserRole.manager:
-        if current_user.department_scope and person.department != current_user.department_scope:
-            from app.core.dependencies import PermissionError
-            raise PermissionError("You can only view employees in your department.")
+    svc.authorize_person_access(current_user, person)
     return _build_response(person, db)
 
 
