@@ -2,6 +2,7 @@
 Phase 1 Tests — Database schema integrity, constraints, relationships, business logic.
 All tests must pass before Phase 2 begins.
 """
+import re
 import pytest
 from datetime import date, timedelta
 from sqlalchemy.exc import IntegrityError
@@ -45,12 +46,15 @@ class TestIdPrefix:
         assert dir_prefix.next_sequence == 1
 
     def test_generate_employee_id_format(self, db, dir_prefix):
+        # prefix + 5 random digits (non-sequential, so IDs aren't guessable)
         eid = dir_prefix.generate_employee_id()
-        assert eid == "DIR-0001"
+        assert re.fullmatch(r"DIR\d{5}", eid), eid
 
-    def test_generate_employee_id_sequence(self, db, dir_prefix):
-        dir_prefix.next_sequence = 42
-        assert dir_prefix.generate_employee_id() == "DIR-0042"
+    def test_generate_employee_id_random_not_sequential(self, db, dir_prefix):
+        # Two generations should (essentially always) differ and never be "-0001".
+        ids = {dir_prefix.generate_employee_id() for _ in range(20)}
+        assert all(re.fullmatch(r"DIR\d{5}", i) for i in ids)
+        assert len(ids) > 1
 
     def test_prefix_unique_constraint(self, db, dir_prefix, super_admin):
         duplicate = IdPrefix(
@@ -66,7 +70,7 @@ class TestIdPrefix:
 
     def test_contractor_prefix(self, db, ctr_prefix):
         assert ctr_prefix.applies_to == PersonType.contractor
-        assert ctr_prefix.generate_employee_id() == "CTR-0001"
+        assert re.fullmatch(r"CTR\d{5}", ctr_prefix.generate_employee_id())
 
     def test_all_default_prefixes_coverable(self):
         defaults = [
@@ -79,7 +83,7 @@ class TestIdPrefix:
         ]
         for prefix, label, ptype in defaults:
             p = IdPrefix(prefix=prefix, label=label, applies_to=ptype, next_sequence=1)
-            assert p.generate_employee_id() == f"{prefix}-0001"
+            assert re.fullmatch(rf"{prefix}\d{{5}}", p.generate_employee_id())
 
 
 # ── AppUser tests ────────────────────────────────────────────────────────────
@@ -147,7 +151,7 @@ class TestPerson:
     def test_create_employee(self, db, main_company, dir_prefix, super_admin):
         person = self._make_person(db, main_company, dir_prefix, super_admin)
         assert person.id is not None
-        assert person.employee_id == "DIR-0001"
+        assert re.fullmatch(r"DIR\d{5}", person.employee_id), person.employee_id
         assert person.full_name == "Jane Smith"
         assert person.status == PersonStatus.pending
 
@@ -156,10 +160,10 @@ class TestPerson:
         assert person.full_name == "Jane Smith"
 
     def test_employee_id_unique(self, db, main_company, dir_prefix, super_admin):
-        self._make_person(db, main_company, dir_prefix, super_admin)
+        first = self._make_person(db, main_company, dir_prefix, super_admin)
         duplicate = Person(
             person_type=PersonType.employee,
-            employee_id="DIR-0001",
+            employee_id=first.employee_id,  # reuse the exact ID to force a collision
             first_name="Bob",
             last_name="Jones",
             email="bob.jones@acme.com",

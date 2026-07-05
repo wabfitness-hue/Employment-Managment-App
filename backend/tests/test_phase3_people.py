@@ -2,6 +2,7 @@
 Phase 3 Tests — Employee/Contractor CRUD, ID generation, auto access assignment,
 NFC lookup, manager scope enforcement, validation rules.
 """
+import re
 import pytest
 import uuid
 from datetime import date, timedelta
@@ -120,22 +121,26 @@ def _ctr_payload(contractor_company, ctr_prefix, **kwargs):
 
 class TestIDGeneration:
     def test_first_employee_id(self, db, main_company, dir_prefix, dir_profile, hr_admin):
+        # IDs are prefix + 5 random digits (non-sequential, so they aren't guessable).
         payload = _emp_payload(main_company, dir_prefix)
         person = create_person(db, payload, str(hr_admin.id))
-        assert person.employee_id == "D3-0001"
+        assert re.fullmatch(r"D3\d{5}", person.employee_id), person.employee_id
 
-    def test_sequential_ids(self, db, main_company, dir_prefix, dir_profile, hr_admin):
-        for i in range(1, 4):
+    def test_ids_are_unique(self, db, main_company, dir_prefix, dir_profile, hr_admin):
+        ids = set()
+        for _ in range(10):
             payload = _emp_payload(main_company, dir_prefix)
             person = create_person(db, payload, str(hr_admin.id))
-            assert person.employee_id == f"D3-{i:04d}"
+            assert re.fullmatch(r"D3\d{5}", person.employee_id), person.employee_id
+            ids.add(person.employee_id)
+        assert len(ids) == 10  # no collisions
 
     def test_contractor_id_uses_ctr_prefix(self, db, contractor_company, ctr_prefix, ctr_profile, hr_admin):
         payload = _ctr_payload(contractor_company, ctr_prefix)
         person = create_person(db, payload, str(hr_admin.id))
-        assert person.employee_id.startswith("C3-")
+        assert re.fullmatch(r"C3\d{5}", person.employee_id), person.employee_id
 
-    def test_different_prefixes_independent_sequences(self, db, main_company, dir_prefix, eng_prefix, dir_profile, hr_admin):
+    def test_different_prefixes_use_their_own_prefix(self, db, main_company, dir_prefix, eng_prefix, dir_profile, hr_admin):
         AccessProfile(name="Eng Profile P3", default_for_prefix_id=eng_prefix.id)
         p1 = create_person(db, _emp_payload(main_company, dir_prefix), str(hr_admin.id))
         p2 = create_person(db, PersonCreate(
@@ -147,8 +152,8 @@ class TestIDGeneration:
             company_id=str(main_company.id),
             contract_start=date.today(),
         ), str(hr_admin.id))
-        assert p1.employee_id == "D3-0001"
-        assert p2.employee_id == "E3-0001"
+        assert re.fullmatch(r"D3\d{5}", p1.employee_id), p1.employee_id
+        assert re.fullmatch(r"E3\d{5}", p2.employee_id), p2.employee_id
 
 
 # ── Create employee ───────────────────────────────────────────────────────────

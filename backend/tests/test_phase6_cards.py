@@ -9,7 +9,7 @@ from datetime import date, timedelta
 from unittest.mock import patch
 
 from app.services.cards.generator import (
-    CardData, generate_card_pdf, _format_access, _abbreviate_days, _truncate,
+    CardData, generate_card_pdf, _truncate,
 )
 from app.services.cards.bulk import generate_bulk_pdf, CARDS_PER_PAGE
 from app.services.cards.dimensions import (
@@ -200,61 +200,6 @@ class TestPDFGeneration:
         c1 = _employee_card(employee_id="DIR-0001", full_name="Alice Jones")
         c2 = _employee_card(employee_id="ENG-0002", full_name="Bob Smith")
         assert generate_card_pdf(c1) != generate_card_pdf(c2)
-
-
-# ── Access formatting ─────────────────────────────────────────────────────────
-
-class TestAccessFormatting:
-    def test_employee_shows_profile_name(self):
-        card = _employee_card(access_profile_name="Director Full Access")
-        text = _format_access(card)
-        assert text == "ACCESS: Director Full Access"
-
-    def test_contractor_shows_days_and_time(self):
-        card = _contractor_card(
-            access_days="monday,tuesday,wednesday,thursday,friday",
-            access_start="08:00",
-            access_end="17:30",
-        )
-        text = _format_access(card)
-        assert "Mon–Fri" in text
-        assert "08:00" in text
-        assert "17:30" in text
-
-    def test_no_access_profile_shows_dash(self):
-        card = _employee_card(access_profile_name=None)
-        text = _format_access(card)
-        assert text == "ACCESS: —"
-
-    def test_contractor_mon_wed_fri(self):
-        card = _contractor_card(access_days="monday,wednesday,friday")
-        text = _format_access(card)
-        assert "Mon" in text
-
-    def test_contractor_single_day(self):
-        card = _contractor_card(access_days="tuesday", access_start="10:00", access_end="14:00")
-        text = _format_access(card)
-        assert "Tue" in text
-
-
-class TestDayAbbreviation:
-    def test_full_weekweek_shortens(self):
-        assert _abbreviate_days("monday,tuesday,wednesday,thursday,friday") == "Mon–Fri"
-
-    def test_single_day(self):
-        assert _abbreviate_days("wednesday") == "Wed"
-
-    def test_empty_string(self):
-        assert _abbreviate_days("") == ""
-
-    def test_weekend(self):
-        result = _abbreviate_days("saturday,sunday")
-        assert "Sat" in result
-
-    def test_custom_range(self):
-        result = _abbreviate_days("monday,tuesday,wednesday")
-        assert "Mon" in result
-        assert "Wed" in result
 
 
 # ── Text truncation ───────────────────────────────────────────────────────────
