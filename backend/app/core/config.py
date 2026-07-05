@@ -36,6 +36,28 @@ class Settings(BaseSettings):
         return [ip.strip() for ip in self.TRUSTED_PROXY_IPS.split(",") if ip.strip()]
 
     @property
+    def trusted_proxy_networks(self) -> list:
+        """TRUSTED_PROXY_IPS parsed as IP networks (supports CIDR like 172.0.0.0/8)."""
+        import ipaddress
+        nets = []
+        for entry in self.trusted_proxy_list:
+            try:
+                nets.append(ipaddress.ip_network(entry, strict=False))
+            except ValueError:
+                # Ignore malformed entries rather than trusting everything
+                continue
+        return nets
+
+    def is_trusted_proxy(self, ip: str) -> bool:
+        """True if `ip` falls within any configured trusted-proxy network."""
+        import ipaddress
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False
+        return any(addr in net for net in self.trusted_proxy_networks)
+
+    @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 

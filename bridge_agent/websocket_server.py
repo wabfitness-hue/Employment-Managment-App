@@ -28,7 +28,7 @@ except ImportError:
     _LEGACY = True
 
 from . import protocol
-from .config import WS_HOST, WS_PORT, BRIDGE_SECRET
+from .config import WS_HOST, WS_PORT, BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE
 from .nfc_reader import NFCReader
 from .card_printer import CardPrinter
 
@@ -54,6 +54,14 @@ class BridgeServer:
     # ── Server lifecycle ──────────────────────────────────────────────────────
 
     async def start(self) -> None:
+        if not BRIDGE_SECRET:
+            if ALLOW_INSECURE_BRIDGE:
+                logger.warning("BRIDGE_AGENT_SECRET is not set — running INSECURE (ALLOW_INSECURE_BRIDGE). Dev only.")
+            else:
+                logger.error(
+                    "BRIDGE_AGENT_SECRET is not set — all client connections will be REFUSED. "
+                    "Set BRIDGE_AGENT_SECRET (recommended), or ALLOW_INSECURE_BRIDGE=1 for local dev."
+                )
         self._nfc.start()
         self._server = await websockets.serve(
             self._handle_client, WS_HOST, WS_PORT,
@@ -110,7 +118,7 @@ class BridgeServer:
                 # Auth must be first
                 if not authenticated:
                     if msg_type == "auth":
-                        if protocol.verify_secret(msg.get("secret", ""), BRIDGE_SECRET):
+                        if protocol.verify_secret(msg.get("secret", ""), BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE):
                             authenticated = True
                             self._authenticated_clients.add(ws)
                             await ws.send(protocol.encode({"type": "auth_ok"}))

@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, Request, HTTPException, status
 from sqlalchemy.orm import Session
 from jose import JWTError
 
-from app.core.config import get_settings
+from app.core.request_ip import client_ip
+from app.core.token_store import consume_refresh_jti
 from app.database import get_db
 from app.models.app_user import AppUser, UserRole
 from app.core.security import (
@@ -41,19 +42,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 def _client_ip(request: Request) -> str:
-    """Return the real client IP.
-
-    X-Forwarded-For is only trusted when the direct TCP client is a known
-    trusted proxy (set via TRUSTED_PROXY_IPS in .env).  Spoofing this header
-    from an untrusted source would otherwise allow rate-limit bypass.
-    """
-    direct_ip = request.client.host if request.client else "unknown"
-    trusted = get_settings().trusted_proxy_list
-    if direct_ip in trusted:
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-    return direct_ip
+    """Return the real client IP (CIDR-aware trusted-proxy handling)."""
+    return client_ip(request)
 
 
 # ── Login ────────────────────────────────────────────────────────────────────
@@ -194,6 +184,13 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid token type.")
 
+    # One-time use: reject a refresh token that has already been rotated/replayed.
+    if not consume_refresh_jti(payload.get("jti"), payload.get("exp")):
+        raise HTTPException(
+            status_code=401,
+            detail="Refresh token already used. Please log in again.",
+        )
+
     user = db.query(AppUser).filter(
         AppUser.id == payload["sub"],
         AppUser.is_active == True,
@@ -201,6 +198,8 @@ def refresh_token(body: RefreshRequest, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found.")
 
+    # Only mint MFA-verified tokens if the account still doesn't require a fresh
+    # challenge — i.e. if MFA is enabled, the prior full-auth still holds.
     access = create_access_token(str(user.id), user.role.value, mfa_verified=True)
     new_refresh = create_refresh_token(str(user.id))
     return TokenResponse(access_token=access, refresh_token=new_refresh)

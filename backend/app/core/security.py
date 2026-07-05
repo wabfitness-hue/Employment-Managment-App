@@ -59,8 +59,10 @@ def create_access_token(user_id: str, role: str, mfa_verified: bool = False) -> 
 
 
 def create_refresh_token(user_id: str) -> str:
+    # jti (unique token id) lets the refresh endpoint enforce one-time use /
+    # rotation — a used or replayed refresh token is rejected.
     return _make_token(
-        {"sub": user_id, "type": "refresh"},
+        {"sub": user_id, "type": "refresh", "jti": secrets.token_urlsafe(16)},
         timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
     )
 

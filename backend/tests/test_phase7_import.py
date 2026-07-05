@@ -311,6 +311,18 @@ class TestValidator:
 
 # ── Setup wizard (via HTTP client) ────────────────────────────────────────────
 
+@pytest.fixture
+def hr_client(client):
+    """`client` with the HR-admin auth dependency satisfied (for protected routes)."""
+    from app.core.dependencies import require_hr_or_above
+    from app.models.app_user import AppUser, UserRole
+    client.app.dependency_overrides[require_hr_or_above] = lambda: AppUser(
+        email="hr@test.com", display_name="HR", password_hash="x", role=UserRole.hr_admin,
+    )
+    yield client
+    client.app.dependency_overrides.pop(require_hr_or_above, None)
+
+
 class TestSetupWizard:
     def test_status_requires_setup_on_fresh_db(self, client):
         r = client.get("/api/v1/setup/status")
@@ -390,7 +402,8 @@ class TestSetupWizard:
         r = client.post("/api/v1/setup/company", json={"name": "X"})
         assert r.status_code == 409
 
-    def test_get_prefixes(self, client):
+    def test_get_prefixes(self, hr_client):
+        client = hr_client
         # Seed some prefixes first
         client.post("/api/v1/setup/prefixes", json={"prefixes": [
             {"prefix": "DIR", "label": "Director", "person_type": "employee"},
@@ -403,7 +416,8 @@ class TestSetupWizard:
         assert "DIR" in codes
         assert "CTR" in codes
 
-    def test_setup_prefixes(self, client):
+    def test_setup_prefixes(self, hr_client):
+        client = hr_client
         r = client.post("/api/v1/setup/prefixes", json={"prefixes": [
             {"prefix": "DIR", "label": "Director", "person_type": "employee"},
             {"prefix": "CTR", "label": "Contractor", "person_type": "contractor"},
@@ -411,14 +425,24 @@ class TestSetupWizard:
         assert r.status_code == 200
         assert r.json()["created"] == 2
 
-    def test_duplicate_prefix_rejected(self, client):
+    def test_prefixes_require_auth(self, client):
+        # Unauthenticated access to the destructive prefix routes must be rejected.
+        r = client.post("/api/v1/setup/prefixes", json={"prefixes": [
+            {"prefix": "DIR", "label": "Director", "person_type": "employee"},
+        ]})
+        assert r.status_code in (401, 403)
+        assert client.get("/api/v1/setup/prefixes").status_code in (401, 403)
+
+    def test_duplicate_prefix_rejected(self, hr_client):
+        client = hr_client
         r = client.post("/api/v1/setup/prefixes", json={"prefixes": [
             {"prefix": "DIR", "label": "Director", "person_type": "employee"},
             {"prefix": "DIR", "label": "Director2", "person_type": "employee"},
         ]})
         assert r.status_code == 422
 
-    def test_invalid_prefix_format_rejected(self, client):
+    def test_invalid_prefix_format_rejected(self, hr_client):
+        client = hr_client
         r = client.post("/api/v1/setup/prefixes", json={"prefixes": [
             {"prefix": "X1", "label": "Bad", "person_type": "employee"},
         ]})

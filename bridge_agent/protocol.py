@@ -68,8 +68,13 @@ def make_error(error: str) -> dict:
     return {"type": "error", "error": error}
 
 
-def verify_secret(provided: str, expected: str) -> bool:
-    """Constant-time comparison to prevent timing attacks."""
+def verify_secret(provided: str, expected: str, allow_insecure: bool = False) -> bool:
+    """Constant-time comparison to prevent timing attacks.
+
+    Fails CLOSED when no secret is configured: without a shared secret the bridge
+    controls NFC credentials and the card printer, so an unset secret denies all
+    clients unless `allow_insecure` is explicitly enabled (dev only).
+    """
     if not expected:
-        return True   # no secret configured = open (dev mode only)
+        return allow_insecure   # no secret configured = deny unless dev opt-in
     return hmac.compare_digest(provided.encode(), expected.encode())

@@ -191,7 +191,10 @@ class PrefixSetupRequest(BaseModel):
 
 
 @router.get("/prefixes")
-def get_prefixes(db: Session = Depends(get_db)):
+def get_prefixes(
+    db: Session = Depends(get_db),
+    current_user: AppUser = Depends(require_hr_or_above),
+):
     prefixes = db.query(IdPrefix).order_by(IdPrefix.label).all()
     return [
         {"id": str(p.id), "prefix": p.prefix, "label": p.label, "person_type": p.applies_to.value}
@@ -200,10 +203,14 @@ def get_prefixes(db: Session = Depends(get_db)):
 
 
 @router.post("/prefixes")
-def setup_prefixes(body: PrefixSetupRequest, db: Session = Depends(get_db)):
+def setup_prefixes(
+    body: PrefixSetupRequest,
+    db: Session = Depends(get_db),
+    current_user: AppUser = Depends(require_hr_or_above),
+):
     """
     Replace the entire prefix list with what HR has decided.
-    Can also be used post-setup by HR admins — no setup_guard here.
+    HR-admin-or-above only — this deletes and rebuilds all ID prefixes.
     """
     if not body.prefixes:
         raise HTTPException(status_code=422, detail="At least one prefix required.")

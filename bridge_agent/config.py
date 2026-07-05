@@ -28,6 +28,10 @@ WS_PORT: int = int(os.getenv("BRIDGE_WS_PORT", "8765"))
 # Shared secret — must match BRIDGE_AGENT_SECRET in the backend .env
 BRIDGE_SECRET: str = os.getenv("BRIDGE_AGENT_SECRET", "")
 
+# Dev-only escape hatch: allow the bridge to run WITHOUT a shared secret.
+# Off by default so an unset secret fails closed rather than open.
+ALLOW_INSECURE_BRIDGE: bool = os.getenv("ALLOW_INSECURE_BRIDGE", "").lower() in ("1", "true", "yes")
+
 # NFC reader settings
 NFC_POLL_INTERVAL_MS: int = int(os.getenv("NFC_POLL_INTERVAL_MS", "250"))
 

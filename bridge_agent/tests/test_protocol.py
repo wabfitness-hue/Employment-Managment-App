@@ -79,10 +79,15 @@ class TestSecretVerification:
     def test_wrong_secret_rejected(self):
         assert verify_secret("wrong", "my-secret") is False
 
-    def test_empty_expected_secret_always_passes(self):
-        # No secret configured → dev/open mode
-        assert verify_secret("anything", "") is True
-        assert verify_secret("", "") is True
+    def test_empty_expected_secret_fails_closed(self):
+        # No secret configured → deny by default (fail closed)
+        assert verify_secret("anything", "") is False
+        assert verify_secret("", "") is False
+
+    def test_empty_expected_secret_open_only_with_dev_flag(self):
+        # Explicit dev opt-in re-enables the old open behaviour
+        assert verify_secret("anything", "", allow_insecure=True) is True
+        assert verify_secret("", "", allow_insecure=True) is True
 
     def test_empty_provided_secret_fails_when_expected(self):
         assert verify_secret("", "my-secret") is False

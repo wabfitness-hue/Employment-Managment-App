@@ -271,3 +271,30 @@ class TestSecurityHeaders:
         from app.main import create_app
         app = create_app()
         assert app.openapi_url is None or True
+
+
+# ── Trusted-proxy CIDR parsing (rate-limit / audit IP handling) ────────────────
+
+class TestTrustedProxyCIDR:
+    """is_trusted_proxy must match CIDR ranges, not just exact strings."""
+    def _settings(self, value):
+        s = get_settings()
+        original = s.TRUSTED_PROXY_IPS
+        s.TRUSTED_PROXY_IPS = value
+        return s, original
+
+    def test_cidr_range_matches_member_ip(self):
+        s, original = self._settings("172.0.0.0/8,127.0.0.1")
+        try:
+            assert s.is_trusted_proxy("172.18.0.5") is True   # Docker bridge IP
+            assert s.is_trusted_proxy("127.0.0.1") is True
+            assert s.is_trusted_proxy("10.0.0.1") is False    # outside range
+        finally:
+            s.TRUSTED_PROXY_IPS = original
+
+    def test_malformed_entry_does_not_trust_everything(self):
+        s, original = self._settings("not-an-ip")
+        try:
+            assert s.is_trusted_proxy("1.2.3.4") is False
+        finally:
+            s.TRUSTED_PROXY_IPS = original
