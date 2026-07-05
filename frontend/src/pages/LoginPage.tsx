@@ -72,13 +72,13 @@ export function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 bg-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-white text-2xl font-bold">EMS</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-          <p className="text-gray-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Employee Management</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
             {step === 'credentials' ? 'Sign in to your account' : 'Enter your authenticator code'}
           </p>
         </div>
@@ -139,7 +139,7 @@ export function LoginPage() {
             <button
               type="button"
               onClick={() => setStep('credentials')}
-              className="w-full text-sm text-gray-500 hover:text-gray-700"
+              className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700"
             >
               ← Back to login
             </button>

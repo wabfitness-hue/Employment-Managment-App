@@ -100,19 +100,19 @@ export function SetupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-blue-700 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg">
         {/* Step indicator */}
-        <div className="px-8 pt-8 pb-6 border-b border-gray-100">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">First-time setup</h1>
+        <div className="px-8 pt-8 pb-6 border-b border-gray-100 dark:border-gray-800">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">First-time setup</h1>
           <div className="flex items-center gap-2">
             {steps.map((s, i) => (
               <div key={s} className="flex items-center gap-2">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
-                  ${i < step ? 'bg-green-500 text-white' : i === step ? 'bg-blue-700 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  ${i < step ? 'bg-green-500 text-white' : i === step ? 'bg-blue-700 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>
                   {i < step ? '✓' : i + 1}
                 </div>
-                <span className={`text-xs hidden sm:block ${i === step ? 'text-gray-900 font-medium' : 'text-gray-400'}`}>{s}</span>
-                {i < steps.length - 1 && <div className="w-6 h-px bg-gray-200" />}
+                <span className={`text-xs hidden sm:block ${i === step ? 'text-gray-900 dark:text-gray-100 font-medium' : 'text-gray-400'}`}>{s}</span>
+                {i < steps.length - 1 && <div className="w-6 h-px bg-gray-200 dark:bg-gray-700" />}
               </div>
             ))}
           </div>
@@ -126,7 +126,7 @@ export function SetupPage() {
             <form onSubmit={companyForm.handleSubmit(onCompany)} className="space-y-4">
               <div>
                 <h2 className="text-lg font-semibold mb-1">Company name</h2>
-                <p className="text-sm text-gray-500 mb-4">This appears on all ID cards.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">This appears on all ID cards.</p>
               </div>
               <Input label="Company name" required
                 error={companyForm.formState.errors.name?.message as string}
@@ -140,7 +140,7 @@ export function SetupPage() {
             <form onSubmit={adminForm.handleSubmit(onAdmin)} className="space-y-4">
               <div>
                 <h2 className="text-lg font-semibold mb-1">Administrator account</h2>
-                <p className="text-sm text-gray-500 mb-4">This is the super_admin who controls the system.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">This is the super_admin who controls the system.</p>
               </div>
               <Input label="Full name" required
                 error={adminForm.formState.errors.full_name?.message as string}
@@ -161,7 +161,7 @@ export function SetupPage() {
             <form onSubmit={mfaForm.handleSubmit(onMfa)} className="space-y-4">
               <div>
                 <h2 className="text-lg font-semibold mb-1">Set up authenticator</h2>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
                   Open <strong>Google Authenticator</strong>, <strong>Authy</strong>, or any TOTP app and scan the QR code below.
                 </p>
               </div>
@@ -176,14 +176,14 @@ export function SetupPage() {
 
               {/* Manual entry fallback */}
               {mfaSecret && (
-                <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
-                  <p className="text-xs text-gray-500 mb-1">Can't scan? Enter this code manually in your app:</p>
+                <div className="rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Can't scan? Enter this code manually in your app:</p>
                   <div className="flex items-center gap-2">
-                    <code className="text-sm font-mono text-gray-900 break-all flex-1">{mfaSecret}</code>
+                    <code className="text-sm font-mono text-gray-900 dark:text-gray-100 break-all flex-1">{mfaSecret}</code>
                     <button type="button" onClick={copySecret}
-                      className="shrink-0 p-1 rounded hover:bg-gray-200 transition-colors"
+                      className="shrink-0 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                       title="Copy secret">
-                      {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-500" />}
+                      {copied ? <CheckCircle className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4 text-gray-500 dark:text-gray-400" />}
                     </button>
                   </div>
                 </div>
@@ -201,7 +201,7 @@ export function SetupPage() {
             <div className="text-center space-y-4">
               <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
               <h2 className="text-xl font-bold">Setup complete!</h2>
-              <p className="text-gray-500">Your system is ready. You can now add employees and contractors.</p>
+              <p className="text-gray-500 dark:text-gray-400">Your system is ready. You can now add employees and contractors.</p>
               <Button className="w-full" onClick={() => navigate('/dashboard')}>Go to dashboard</Button>
             </div>
           )}

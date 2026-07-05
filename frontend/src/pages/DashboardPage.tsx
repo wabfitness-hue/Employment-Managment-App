@@ -13,8 +13,8 @@ function StatCard({ label, value, icon: Icon, colour }: { label: string; value: 
     <Card>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-gray-500">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
+          <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">{value}</p>
         </div>
         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colour}`}>
           <Icon className="h-6 w-6 text-white" />
@@ -41,10 +41,10 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Good {new Date().getHours() < 12 ? 'morning' : 'afternoon'}, {user?.display_name?.split(' ')[0]}
         </h1>
-        <p className="text-gray-500 text-sm mt-1">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
       </div>
 
       {/* Stats */}
@@ -58,7 +58,7 @@ export function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent people */}
         <Card padding={false}>
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-800">
             <CardHeader
               title="Recent People"
               action={<Button variant="ghost" size="sm" onClick={() => navigate('/people')}>View all</Button>}
@@ -68,7 +68,7 @@ export function DashboardPage() {
             {recentPeople.map(p => (
               <div
                 key={p.id}
-                className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                 onClick={() => navigate(`/people/${p.id}`)}
               >
                 <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-bold shrink-0">
@@ -76,7 +76,7 @@ export function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.full_name}</p>
-                  <p className="text-xs text-gray-500 truncate">{p.job_title} · {p.employee_id}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{p.job_title} · {p.employee_id}</p>
                 </div>
                 <Badge variant={p.person_type === 'employee' ? 'blue' : 'orange'}>
                   {p.person_type === 'employee' ? 'EMP' : 'CTR'}
@@ -91,7 +91,7 @@ export function DashboardPage() {
 
         {/* Expiry alerts */}
         <Card padding={false}>
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-800">
             <CardHeader
               title="Contract Alerts"
               action={<Button variant="ghost" size="sm" onClick={() => navigate('/contracts')}>View all</Button>}
@@ -101,13 +101,13 @@ export function DashboardPage() {
             {[...(expiryReport?.groups?.critical ?? []), ...(expiryReport?.groups?.warning ?? [])].slice(0, 5).map((item: {person_id: string; full_name: string; employee_id: string; days_remaining: number; warning_level: string}) => (
               <div
                 key={item.person_id}
-                className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 cursor-pointer"
+                className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                 onClick={() => navigate(`/people/${item.person_id}`)}
               >
                 <AlertTriangle className="h-4 w-4 text-orange-500 shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{item.full_name}</p>
-                  <p className="text-xs text-gray-500">{item.employee_id} · {item.days_remaining}d remaining</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{item.employee_id} · {item.days_remaining}d remaining</p>
                 </div>
                 <ExpiryBadge level={item.warning_level} />
               </div>

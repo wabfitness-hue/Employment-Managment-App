@@ -60,7 +60,7 @@ function SwatchRow({ colours, value, onChange }: { colours: string[]; value: str
         type="color"
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-7 h-7 rounded-md cursor-pointer border border-gray-300 p-0.5 ml-1"
+        className="w-7 h-7 rounded-md cursor-pointer border border-gray-300 dark:border-gray-600 p-0.5 ml-1"
         title="Custom colour"
       />
       <span className="font-mono text-[11px] text-gray-400 uppercase ml-1">{value}</span>
@@ -78,7 +78,7 @@ function OptionalColourRow({ colours, value, onChange, autoLabel }: {
         type="button"
         onClick={() => onChange('')}
         className={`px-3 h-7 rounded-md border-2 text-xs font-medium transition-colors ${
-          !value ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 text-gray-600 hover:border-gray-400'
+          !value ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
         }`}
         title={autoLabel}
       >
@@ -100,7 +100,7 @@ function OptionalColourRow({ colours, value, onChange, autoLabel }: {
         type="color"
         value={value || '#000000'}
         onChange={e => onChange(e.target.value)}
-        className="w-7 h-7 rounded-md cursor-pointer border border-gray-300 p-0.5 ml-1"
+        className="w-7 h-7 rounded-md cursor-pointer border border-gray-300 dark:border-gray-600 p-0.5 ml-1"
         title="Custom colour"
       />
       <span className="font-mono text-[11px] text-gray-400 uppercase ml-1">{value || 'auto'}</span>
@@ -138,25 +138,25 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl p-6 max-h-[92vh] overflow-y-auto w-full max-w-4xl"
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-h-[92vh] overflow-y-auto w-full max-w-4xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Card designer</h2>
-            <p className="text-xs text-gray-500">Design how printed ID cards look — colours, text and font</p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Card designer</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Design how printed ID cards look — colours, text and font</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
         </div>
 
         {/* Type tabs */}
-        <div className="flex gap-1 mb-5 bg-gray-100 rounded-lg p-1 w-fit">
+        <div className="flex gap-1 mb-5 bg-gray-100 dark:bg-gray-800 rounded-lg p-1 w-fit">
           {(['employee', 'contractor'] as const).map(t => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                tab === t ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'
+                tab === t ? 'bg-white dark:bg-gray-800 shadow text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'
               }`}
             >
               {t} cards
@@ -168,12 +168,12 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
           {/* Controls */}
           <div className="space-y-5">
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Card colour</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Card colour</p>
               <SwatchRow colours={BG_SWATCHES} value={current.bg_colour} onChange={c => patch({ bg_colour: c })} />
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                 Top &amp; bottom band <span className="text-xs font-normal text-gray-400">(edge strips)</span>
               </p>
               <OptionalColourRow
@@ -185,7 +185,7 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">
                 Company name colour <span className="text-xs font-normal text-gray-400">(on the top band)</span>
               </p>
               <OptionalColourRow
@@ -197,17 +197,17 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Text colour</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Text colour</p>
               <SwatchRow colours={['#FFFFFF', '#111827', '#F1F5F9', '#FDE68A']} value={current.text_colour} onChange={c => patch({ text_colour: c })} />
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Accent colour <span className="text-xs font-normal text-gray-400">(ID number, stripe, badge)</span></p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Accent colour <span className="text-xs font-normal text-gray-400">(ID number, stripe, badge)</span></p>
               <SwatchRow colours={ACCENT_SWATCHES} value={current.accent_colour} onChange={c => patch({ accent_colour: c })} />
             </div>
 
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">Text type</p>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Text type</p>
               <div className="space-y-1.5">
                 {FONTS.map(f => (
                   <button
@@ -217,7 +217,7 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
                     className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
                       current.font === f.value
                         ? 'border-blue-500 bg-blue-50 text-blue-900'
-                        : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                        : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-gray-300'
                     }`}
                     style={{ fontFamily: f.css }}
                   >
@@ -230,7 +230,7 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
 
           {/* Live preview */}
           <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Live preview</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Live preview</p>
             <div className="origin-top-left scale-[0.78]" style={{ height: 303 * 0.78, width: 480 * 0.78 }}>
               <CardVisual
                 preview={tab === 'employee' ? SAMPLE_EMPLOYEE : SAMPLE_CONTRACTOR}
@@ -243,7 +243,7 @@ export function CardDesigner({ onClose }: { onClose: () => void }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-gray-100 dark:border-gray-800">
           {savedFlash && <span className="text-xs text-green-600 flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Design saved</span>}
           <Button variant="secondary" size="sm" onClick={onClose}>Close</Button>
           <Button size="sm" loading={saveMutation.isPending} onClick={() => saveMutation.mutate()}>Save design</Button>

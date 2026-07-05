@@ -8,7 +8,7 @@ interface CardProps {
 
 export function Card({ children, className, padding = true }: CardProps) {
   return (
-    <div className={clsx('bg-white rounded-xl border border-gray-200 shadow-sm', padding && 'p-6', className)}>
+    <div className={clsx('bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm', padding && 'p-6', className)}>
       {children}
     </div>
   )
@@ -18,8 +18,8 @@ export function CardHeader({ title, subtitle, action }: { title: string; subtitl
   return (
     <div className="flex items-start justify-between mb-4">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+        {subtitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>}
       </div>
       {action}
     </div>

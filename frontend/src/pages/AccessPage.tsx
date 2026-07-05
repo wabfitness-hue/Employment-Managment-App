@@ -10,7 +10,7 @@ export function AccessPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Access Control</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Access Control</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
@@ -20,8 +20,8 @@ export function AccessPage() {
               <div key={z.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                 <MapPin className="h-4 w-4 text-gray-400 shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{z.name}</p>
-                  {z.floor && <p className="text-xs text-gray-500">Floor: {z.floor}</p>}
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{z.name}</p>
+                  {z.floor && <p className="text-xs text-gray-500 dark:text-gray-400">Floor: {z.floor}</p>}
                 </div>
                 <Badge variant="gray">{z.code}</Badge>
               </div>
@@ -37,8 +37,8 @@ export function AccessPage() {
               <div key={p.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
                 <Shield className="h-4 w-4 text-blue-500 shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-900">{p.name}</p>
-                  {p.description && <p className="text-xs text-gray-500">{p.description}</p>}
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
+                  {p.description && <p className="text-xs text-gray-500 dark:text-gray-400">{p.description}</p>}
                 </div>
               </div>
             ))}

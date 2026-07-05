@@ -57,7 +57,7 @@ export function ImportPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Data Import</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Data Import</h1>
         <div className="flex gap-2">
           {(['csv', 'xlsx', 'docx'] as const).map(fmt => (
             <Button key={fmt} variant="secondary" size="sm" onClick={() => downloadTemplate(fmt).then(b => saveBlob(b, `template.${fmt}`))}>
@@ -71,13 +71,13 @@ export function ImportPage() {
       <Card>
         <CardHeader title="Upload file" subtitle="Supported formats: CSV, XLSX, DOCX (max 10 MB)" />
         <div
-          className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
           onClick={() => fileRef.current?.click()}
           onDragOver={e => e.preventDefault()}
           onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFilePick(f) }}
         >
           <Upload className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600 font-medium">{file ? file.name : 'Click or drag to upload'}</p>
+          <p className="text-gray-600 dark:text-gray-300 font-medium">{file ? file.name : 'Click or drag to upload'}</p>
           <p className="text-sm text-gray-400 mt-1">CSV, XLSX, or DOCX</p>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.docx" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFilePick(f) }} />
@@ -129,7 +129,7 @@ export function ImportPage() {
           <div className="text-center space-y-2 py-4">
             <CheckCircle className="h-12 w-12 text-green-500 mx-auto" />
             <h3 className="text-lg font-semibold">Import complete</h3>
-            <p className="text-gray-600">{result.records_imported} imported, {result.records_skipped} skipped</p>
+            <p className="text-gray-600 dark:text-gray-300">{result.records_imported} imported, {result.records_skipped} skipped</p>
             <Button onClick={() => { setFile(null); setPreview(null); setResult(null) }}>Import another</Button>
           </div>
         </Card>
@@ -138,15 +138,15 @@ export function ImportPage() {
       {/* History */}
       {jobs.length > 0 && (
         <Card padding={false}>
-          <div className="p-6 border-b border-gray-100">
+          <div className="p-6 border-b border-gray-100 dark:border-gray-800">
             <h2 className="text-lg font-semibold">Import history</h2>
           </div>
           <div className="divide-y divide-gray-50">
             {jobs.map(job => (
               <div key={job.id} className="flex items-center gap-3 px-6 py-3 text-sm">
                 <span className="font-medium flex-1">{job.filename ?? 'Unnamed'}</span>
-                <span className="text-gray-500">{new Date(job.created_at).toLocaleDateString('en-GB')}</span>
-                <span className="text-gray-500">{job.records_imported}/{job.records_found}</span>
+                <span className="text-gray-500 dark:text-gray-400">{new Date(job.created_at).toLocaleDateString('en-GB')}</span>
+                <span className="text-gray-500 dark:text-gray-400">{job.records_imported}/{job.records_found}</span>
                 <Badge variant={job.status === 'completed' ? 'green' : job.status === 'failed' ? 'red' : 'gray'}>
                   {job.status}
                 </Badge>

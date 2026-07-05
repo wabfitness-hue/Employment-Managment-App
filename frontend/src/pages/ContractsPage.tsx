@@ -30,14 +30,14 @@ export function ContractsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Contract Management</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Contract Management</h1>
 
       {LEVELS.map(({ key, label, colour }) => {
         const items: Array<{person_id: string; full_name: string; employee_id: string; person_type: string; days_remaining: number; contract_end: string; warning_level: string}> = report[key] ?? []
         if (items.length === 0) return null
         return (
           <Card key={key} padding={false}>
-            <div className={`px-6 py-3 border-b border-gray-100 rounded-t-xl ${colour}`}>
+            <div className={`px-6 py-3 border-b border-gray-100 dark:border-gray-800 rounded-t-xl ${colour}`}>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4" />
                 <span className="font-semibold">{label}</span>
@@ -48,15 +48,15 @@ export function ContractsPage() {
               {items.map(item => (
                 <div key={item.person_id} className="flex items-center gap-3 px-6 py-3">
                   <div className="flex-1 min-w-0 cursor-pointer" onClick={() => navigate(`/people/${item.person_id}`)}>
-                    <p className="font-medium text-gray-900 hover:text-blue-700">{item.full_name}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 hover:text-blue-700">{item.full_name}</p>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="font-mono text-xs text-gray-500">{item.employee_id}</span>
+                      <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{item.employee_id}</span>
                       <PersonTypeBadge type={item.person_type as 'employee' | 'contractor'} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">
                     <ExpiryBadge level={item.warning_level} />
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {key === 'expired' ? 'Expired' : `${item.days_remaining}d`}
                       {' · '}{new Date(item.contract_end).toLocaleDateString('en-GB')}
                     </p>

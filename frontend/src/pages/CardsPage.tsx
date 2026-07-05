@@ -61,8 +61,8 @@ export function CardsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">ID Cards</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{selected.size} selected</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">ID Cards</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{selected.size} selected</p>
         </div>
         <div className="flex gap-3">
           <Button variant="secondary" size="sm" onClick={() => setDesignerOpen(true)}>
@@ -80,7 +80,7 @@ export function CardsPage() {
       <Card padding={false}>
         <div className="divide-y divide-gray-100">
           {people.map(p => (
-            <div key={p.id} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50">
+            <div key={p.id} className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50 dark:hover:bg-gray-800">
               <input
                 type="checkbox"
                 checked={selected.has(p.id)}
@@ -88,9 +88,9 @@ export function CardsPage() {
                 className="w-4 h-4 rounded accent-blue-600"
               />
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900">{p.full_name}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{p.full_name}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="font-mono text-xs text-gray-500">{p.employee_id}</span>
+                  <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{p.employee_id}</span>
                   <PersonTypeBadge type={p.person_type} />
                   <span className="text-xs text-gray-400">{p.job_title}</span>
                 </div>
@@ -116,9 +116,9 @@ export function CardsPage() {
           className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
           onClick={() => setPreviewId(null)}
         >
-          <div className="bg-white rounded-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Card preview</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Card preview</h2>
               <button onClick={() => setPreviewId(null)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
               </button>

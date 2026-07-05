@@ -164,7 +164,7 @@ export function PersonFormPage() {
         <Button variant="ghost" size="sm" onClick={() => navigate(isEdit ? `/people/${id}` : '/people')}>
           <ArrowLeft className="h-4 w-4" /> Back
         </Button>
-        <h1 className="text-2xl font-bold text-gray-900">{isEdit ? 'Edit person' : 'Add person'}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{isEdit ? 'Edit person' : 'Add person'}</h1>
       </div>
 
       {err && (
@@ -208,7 +208,7 @@ export function PersonFormPage() {
 
             {/* Person type */}
             <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Person type <span className="text-red-500">*</span></label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Person type <span className="text-red-500">*</span></label>
               <div className="flex gap-4">
                 {(['employee', 'contractor'] as const).map(t => (
                   <label key={t} className="flex items-center gap-2 cursor-pointer">
@@ -221,18 +221,18 @@ export function PersonFormPage() {
 
             {/* Company */}
             <div className="col-span-2 flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 {personType === 'contractor' ? "Contractor's company" : 'Company'} <span className="text-red-500">*</span>
               </label>
 
               {personType === 'employee' ? (
-                <div className="px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-700">
+                <div className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-200">
                   {mainCompany?.name ?? 'Loading…'}
                 </div>
               ) : (
                 <div className="space-y-2">
                   <select
-                    className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     {...form.register('company_id')}
                   >
                     <option value="">— Select contractor company —</option>
@@ -257,7 +257,7 @@ export function PersonFormPage() {
                         value={newCompanyName}
                         onChange={e => setNewCompanyName(e.target.value)}
                         placeholder="Company name"
-                        className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleAddCompany())}
                       />
                       <Button type="button" size="sm" onClick={handleAddCompany}>Add</Button>
@@ -272,12 +272,12 @@ export function PersonFormPage() {
             {/* ID Letter */}
             {!isEdit && (
               <div className="col-span-2 flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-700">ID letter <span className="text-red-500">*</span></label>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-200">ID letter <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   maxLength={5}
                   placeholder="e.g. A"
-                  className="w-32 px-3 py-2 rounded-lg border border-gray-300 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-32 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
                   {...form.register('id_letter')}
                   onChange={e => form.setValue('id_letter', e.target.value.toUpperCase())}
                 />
@@ -309,9 +309,9 @@ export function PersonFormPage() {
           <Card>
             <CardHeader title="Status" />
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-700">Status</label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Status</label>
               <select
-                className="px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+                className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
                 {...form.register('status')}
               >
                 <option value="active">Active</option>

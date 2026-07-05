@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
+/* Enable class-based dark mode (Tailwind v4): `dark:` applies when <html> has .dark */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900 antialiased;
+    @apply bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100;
     margin: 0;
   }
   #root {

@@ -18,8 +18,8 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
     <div className="flex gap-2 text-sm">
-      <span className="text-gray-500 w-36 shrink-0">{label}</span>
-      <span className="text-gray-900">{value}</span>
+      <span className="text-gray-500 dark:text-gray-400 w-36 shrink-0">{label}</span>
+      <span className="text-gray-900 dark:text-gray-100">{value}</span>
     </div>
   )
 }
@@ -170,7 +170,7 @@ export function PersonDetailPage() {
   }
 
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400">Loading…</div>
-  if (!person) return <div className="text-center py-20 text-gray-500">Person not found.</div>
+  if (!person) return <div className="text-center py-20 text-gray-500 dark:text-gray-400">Person not found.</div>
 
   const c = person.current_contract
 
@@ -205,8 +205,8 @@ export function PersonDetailPage() {
                 )}
               </div>
               <div className="text-center">
-                <h2 className="text-xl font-bold text-gray-900">{person.full_name}</h2>
-                <p className="text-gray-500 text-sm">{person.job_title}</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{person.full_name}</h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm">{person.job_title}</p>
                 <p className="font-mono text-xs text-gray-400 mt-1">{person.employee_id}</p>
               </div>
               <div className="flex gap-2 flex-wrap justify-center">
@@ -231,11 +231,11 @@ export function PersonDetailPage() {
             <CardHeader title="NFC Card" />
             {person.nfc_uid ? (
               <div className="space-y-2">
-                <p className="text-xs text-gray-500">Enrolled UID</p>
-                <p className="font-mono text-sm bg-gray-50 rounded px-3 py-2">{person.nfc_uid}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Enrolled UID</p>
+                <p className="font-mono text-sm bg-gray-50 dark:bg-gray-900 rounded px-3 py-2">{person.nfc_uid}</p>
               </div>
             ) : (
-              <p className="text-sm text-gray-500 mb-3">No NFC card enrolled.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No NFC card enrolled.</p>
             )}
             <Button
               variant="secondary"
@@ -265,11 +265,11 @@ export function PersonDetailPage() {
                   </p>
                   <div className="text-xs space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Temp card</span>
+                      <span className="text-gray-500 dark:text-gray-400">Temp card</span>
                       <span className="font-mono text-blue-700">{person.temp_nfc_uid}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Permanent card</span>
+                      <span className="text-gray-500 dark:text-gray-400">Permanent card</span>
                       <span className="font-mono text-gray-400 line-through">{person.nfc_uid ?? '—'}</span>
                     </div>
                   </div>
@@ -290,7 +290,7 @@ export function PersonDetailPage() {
                 <select
                   value={cardStatus}
                   onChange={e => setCardStatusState(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm bg-white dark:bg-gray-800 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
                 >
                   {Object.entries(CARD_STATUSES).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
@@ -300,7 +300,7 @@ export function PersonDetailPage() {
                 {cardStatus === 'temporary' ? (
                   /* Forgot card → issue a temporary one */
                   <div className="space-y-2">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
                       Scan or enter the spare card to issue as a temporary. The permanent card ({person.nfc_uid ?? 'none'}) will be marked forgotten and blocked until returned.
                     </p>
                     <div className="flex gap-2">
@@ -308,7 +308,7 @@ export function PersonDetailPage() {
                         value={tempUid}
                         onChange={e => setTempUid(e.target.value.toUpperCase())}
                         placeholder="Temp card UID"
-                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 text-sm font-mono uppercase focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                        className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-mono uppercase focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
                       />
                       <Button
                         variant="secondary"
@@ -337,7 +337,7 @@ export function PersonDetailPage() {
                       value={cardNote}
                       onChange={e => setCardNote(e.target.value)}
                       placeholder="Note (e.g. faulty reader chip, returned Fri)"
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
                     />
                     <Button
                       variant="secondary"
@@ -422,7 +422,7 @@ export function PersonDetailPage() {
               <div className="space-y-2.5">
                 <div className="flex items-center gap-2">
                   <ExpiryBadge level={c.expiry_warning_level} />
-                  <span className="text-sm text-gray-600">{c.days_remaining}d remaining</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{c.days_remaining}d remaining</span>
                 </div>
                 <InfoRow label="Type" value={c.contract_type === 'employee_5yr' ? '5-year Employee' : '6-month Contractor'} />
                 <InfoRow label="Start" value={new Date(c.start_date).toLocaleDateString('en-GB')} />
@@ -430,7 +430,7 @@ export function PersonDetailPage() {
                 <InfoRow label="Renewals" value={String(c.renewal_count)} />
               </div>
             ) : (
-              <p className="text-sm text-gray-500">No active contract.</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">No active contract.</p>
             )}
           </Card>
 
@@ -489,7 +489,7 @@ export function PersonDetailPage() {
           {nfcStatus === 'waiting' && (
             <>
               <div className="w-20 h-20 mx-auto rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
-              <p className="text-gray-600">Hold the NFC card near the reader…</p>
+              <p className="text-gray-600 dark:text-gray-300">Hold the NFC card near the reader…</p>
               <p className="text-xs text-gray-400">Timeout in 15 seconds</p>
             </>
           )}
@@ -521,14 +521,14 @@ export function PersonDetailPage() {
             </p>
           </div>
           <div>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
               Type <span className="font-mono font-medium">{person.employee_id}</span> to confirm:
             </p>
             <input
               autoFocus
               value={confirmText}
               onChange={e => setConfirmText(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm font-mono uppercase focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none"
+              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-mono uppercase focus:border-red-400 focus:ring-1 focus:ring-red-400 outline-none"
               placeholder={person.employee_id}
             />
           </div>

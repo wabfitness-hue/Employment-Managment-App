@@ -82,7 +82,7 @@ export function PhotoCapture({ currentUrl, onFile, onBase64 }: Props) {
   return (
     <div className="flex flex-col items-center gap-3">
       {/* Preview / video / placeholder */}
-      <div className="relative w-40 h-40 rounded-xl overflow-hidden bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center">
+      <div className="relative w-40 h-40 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 flex items-center justify-center">
         {mode === 'camera' ? (
           <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
         ) : preview ? (
