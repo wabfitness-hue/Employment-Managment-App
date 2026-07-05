@@ -1,0 +1,29 @@
+# Local development overrides — applied automatically alongside docker-compose.yml
+# Do NOT use in production.
+#
+# Usage:  docker compose up
+#   This file is auto-merged. Uvicorn runs with --reload and the backend is
+#   directly accessible on port 8000 so Vite's dev server proxy works.
+#
+# Frontend dev server: cd frontend && npm run dev  (runs on :3000)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app         # live source mount for hot-reload
+      - photos:/app/photos
+    ports:
+      - "8000:8000"            # expose directly so Vite proxy can reach it
+    environment:
+      DEBUG: "true"
+
+  # In dev the frontend is served by Vite (npm run dev), not by Nginx.
+  # Disable the Nginx container in dev:
+  nginx:
+    profiles: ["prod"]         # only starts with: docker compose --profile prod up

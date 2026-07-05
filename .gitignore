@@ -1,0 +1,39 @@
+# Secrets — NEVER commit
+.env
+bridge_agent/bridge_agent.env
+bridge_agent/dist/bridge_agent.env
+
+# Data — NEVER commit (real employee data / PII)
+backups/*.dump
+backups/*.tar.gz
+photos/
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+frontend/dist/
+
+# Build artefacts
+bridge_agent/dist/
+bridge_agent/.venv_build/
+bridge_agent/build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp

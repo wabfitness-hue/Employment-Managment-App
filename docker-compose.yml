@@ -1,0 +1,189 @@
+# Employee Management System — Docker Compose
+#
+# Prerequisites:
+#   1. Copy .env.example → .env and fill in all values
+#   2. Run: docker compose up -d
+#   3. On first run, visit http://localhost and complete the setup wizard
+#
+# The bridge agent runs OUTSIDE Docker on the host PC (Windows/macOS/Linux)
+# because it needs direct USB access to the NFC reader and card printer.
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ems_db
+      POSTGRES_USER:     ems_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ems_user -d ems_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+  # ── FastAPI backend ──────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL:       postgresql://ems_user:${POSTGRES_PASSWORD}@db:5432/ems_db
+      REDIS_URL:          redis://redis:6379/0
+      # Only trust X-Forwarded-For from Nginx (172.x.x.x Docker bridge)
+      TRUSTED_PROXY_IPS:  "172.0.0.0/8,127.0.0.1"
+    volumes:
+      - photos:/app/photos
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+    # Backend NOT exposed on host — all traffic via Nginx
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  # ── Daily scheduler (contract-expiry alerts) ────────────────────────────────
+  # Runs as a single instance so alert emails aren't duplicated by the web workers.
+  scheduler:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: employee-management-app-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://ems_user:${POSTGRES_PASSWORD}@db:5432/ems_db
+      REDIS_URL:    redis://redis:6379/0
+    command: ["python", "-m", "app.jobs.scheduler"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  # ── Automated backups (database + photos) ───────────────────────────────────
+  # Dumps the DB and photos to ./backups on the host every 24h, keeping 14 days.
+  # Host bind-mount means backups survive even if the Docker volumes are wiped.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - ./backups:/backups
+      - photos:/photos:ro
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "backup service started — first run now, then every 24h (14-day retention)"
+        while true; do
+          TS=$$(date +%Y%m%d_%H%M%S)
+          if pg_dump -h db -U ems_user -d ems_db -Fc -f /backups/db_$${TS}.dump; then
+            echo "$$(date '+%Y-%m-%d %H:%M:%S') DB backup ok: db_$${TS}.dump"
+          else
+            echo "$$(date '+%Y-%m-%d %H:%M:%S') DB backup FAILED"
+          fi
+          if tar czf /backups/photos_$${TS}.tar.gz -C /photos . 2>/dev/null; then
+            echo "$$(date '+%Y-%m-%d %H:%M:%S') photos backup ok: photos_$${TS}.tar.gz"
+          fi
+          find /backups -name 'db_*.dump' -mtime +14 -delete 2>/dev/null
+          find /backups -name 'photos_*.tar.gz' -mtime +14 -delete 2>/dev/null
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+  # ── Nginx reverse proxy + React SPA ─────────────────────────────────────────
+  nginx:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      # Uncomment for HTTPS:
+      # - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Uncomment for TLS:
+      # - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - internal
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  db_data:
+  redis_data:
+  photos:
+
+networks:
+  internal:
+    driver: bridge

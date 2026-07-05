@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+    margin: 0;
+  }
+  #root {
+    width: 100%;
+    min-height: 100svh;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}

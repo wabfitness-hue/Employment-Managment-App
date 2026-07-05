@@ -1,0 +1,14 @@
+.env
+.env.*
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+htmlcov
+tests/
+.venv
+venv
+*.egg-info
+.git
+.gitignore
