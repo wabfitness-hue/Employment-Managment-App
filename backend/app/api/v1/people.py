@@ -10,7 +10,11 @@ People routes:
   DELETE /people/{id}                — soft delete (sets status=inactive)
   GET    /people/departments         — distinct department list for dropdowns
 """
+import csv
+import io
+from datetime import date
 from fastapi import APIRouter, Depends, Request, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -159,6 +163,62 @@ def list_people(
             expiry_warning_level=warning,
         ))
     return result
+
+
+# ── CSV export ────────────────────────────────────────────────────────────────
+
+@router.get("/export.csv")
+def export_people_csv(
+    request: Request,
+    person_type: Optional[str] = Query(None),
+    department: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    current_user: AppUser = Depends(require_any_role),
+):
+    """Export the (filtered, scope-respecting) people list as CSV."""
+    from app.models.id_prefix import PersonType
+    filters = PersonFilter(
+        person_type=PersonType(person_type) if person_type else None,
+        department=department,
+        status=PersonStatus(status) if status else None,
+        search=search,
+    )
+    people = svc.list_people(
+        db, filters,
+        current_user_role=current_user.role.value,
+        current_user_dept=current_user.department_scope,
+    )
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow([
+        "Employee ID", "First Name", "Last Name", "Email", "Type", "Job Title",
+        "Department", "Floor", "Company", "Status", "Card Status",
+        "Contract End", "NFC Assigned",
+    ])
+    for p in people:
+        contract = p.current_contract
+        w.writerow([
+            p.employee_id, p.first_name, p.last_name, p.email,
+            p.person_type.value, p.job_title, p.department, p.floor or "",
+            p.company.name if p.company else "",
+            p.status.value, p.card_status or "active",
+            contract.end_date.isoformat() if contract else "",
+            "yes" if p.nfc_uid else "no",
+        ])
+
+    log_action(db, "people_exported", user_id=str(current_user.id),
+               detail={"count": len(people)}, ip_address=_client_ip(request))
+    db.commit()
+
+    filename = f"people-{date.today().isoformat()}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── Get one ───────────────────────────────────────────────────────────────────

@@ -4,6 +4,9 @@ import type { Person, PersonListItem, PersonFilter } from '../types'
 export const listPeople = (filters?: PersonFilter & { limit?: number; offset?: number }) =>
   api.get<PersonListItem[]>('/people', { params: filters }).then(r => r.data)
 
+export const exportPeopleCsv = (filters?: PersonFilter & { search?: string }) =>
+  api.get('/people/export.csv', { params: filters, responseType: 'blob' }).then(r => r.data as Blob)
+
 export const getPerson = (id: string) =>
   api.get<Person>(`/people/${id}`).then(r => r.data)
 

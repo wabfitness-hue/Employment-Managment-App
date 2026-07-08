@@ -56,6 +56,16 @@ def db(engine):
 
 # ── Shared fixtures ──────────────────────────────────────────────────────────
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limit():
+    """The rate limiter keeps in-memory state at module level (Redis fallback);
+    clear it before each test so lockouts don't leak across tests."""
+    from app.core import rate_limit
+    rate_limit._attempts.clear()
+    rate_limit._lockouts.clear()
+    yield
+
+
 @pytest.fixture
 def client():
     """HTTP test client with its own isolated in-memory SQLite DB per test."""

@@ -510,3 +510,32 @@ class TestAuditLog:
         r = client.get("/api/v1/audit/actions")
         assert r.status_code == 200
         assert "login_failed" in r.json()["actions"]
+
+
+# ── People CSV export ─────────────────────────────────────────────────────────
+
+@pytest.fixture
+def any_client(client):
+    from app.database import get_db
+    from app.core.dependencies import require_any_role
+    from app.models.app_user import AppUser, UserRole
+    # Insert the acting user so the export's audit-log FK (user_id) is satisfied.
+    db = client.app.dependency_overrides[get_db]()
+    user = AppUser(id=uuid.uuid4(), email="hr-exp@test.com", display_name="HR",
+                   password_hash="x", role=UserRole.hr_admin)
+    db.add(user); db.commit()
+    client.app.dependency_overrides[require_any_role] = lambda: user
+    yield client
+    client.app.dependency_overrides.pop(require_any_role, None)
+
+
+class TestPeopleExport:
+    def test_requires_auth(self, client):
+        assert client.get("/api/v1/people/export.csv").status_code in (401, 403)
+
+    def test_returns_csv_with_header(self, any_client):
+        r = any_client.get("/api/v1/people/export.csv")
+        assert r.status_code == 200
+        assert "text/csv" in r.headers["content-type"]
+        assert "attachment" in r.headers.get("content-disposition", "")
+        assert r.text.splitlines()[0].startswith("Employee ID,First Name,Last Name,Email")

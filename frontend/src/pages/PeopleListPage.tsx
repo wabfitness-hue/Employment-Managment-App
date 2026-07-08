@@ -1,23 +1,39 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Download } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { PersonTypeBadge, StatusBadge, ExpiryBadge } from '../components/ui/Badge'
 import { AuthImg } from '../components/ui/AuthImg'
-import { listPeople, getPhotoUrl } from '../api/people'
+import { listPeople, exportPeopleCsv, getPhotoUrl } from '../api/people'
 import type { PersonFilter, PersonType, PersonStatus } from '../types'
 
 export function PeopleListPage() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<PersonFilter>({})
   const [search, setSearch] = useState('')
+  const [exporting, setExporting] = useState(false)
 
   const { data: people = [], isLoading } = useQuery({
     queryKey: ['people', filter, search],
     queryFn: () => listPeople({ ...filter, search: search || undefined }),
   })
+
+  async function handleExport() {
+    setExporting(true)
+    try {
+      const blob = await exportPeopleCsv({ ...filter, search: search || undefined })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `people-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -26,9 +42,14 @@ export function PeopleListPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">People</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{people.length} record{people.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button onClick={() => navigate('/people/new')}>
-          <Plus className="h-4 w-4" /> Add person
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" loading={exporting} disabled={people.length === 0} onClick={handleExport}>
+            <Download className="h-4 w-4" /> Export CSV
+          </Button>
+          <Button onClick={() => navigate('/people/new')}>
+            <Plus className="h-4 w-4" /> Add person
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
