@@ -20,8 +20,16 @@ function apply(mode: ThemeMode) {
 }
 
 function stored(): ThemeMode {
-  const v = localStorage.getItem(STORAGE_KEY)
-  return v === 'light' || v === 'dark' || v === 'system' ? v : 'system'
+  try {
+    const v = localStorage.getItem(STORAGE_KEY)
+    return v === 'light' || v === 'dark' || v === 'system' ? v : 'system'
+  } catch {
+    return 'system'  // localStorage unavailable (private mode / non-browser)
+  }
+}
+
+function persist(mode: ThemeMode) {
+  try { localStorage.setItem(STORAGE_KEY, mode) } catch { /* ignore */ }
 }
 
 interface ThemeState {
@@ -32,7 +40,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>((set) => ({
   mode: stored(),
   setMode: (mode) => {
-    localStorage.setItem(STORAGE_KEY, mode)
+    persist(mode)
     apply(mode)
     set({ mode })
   },
