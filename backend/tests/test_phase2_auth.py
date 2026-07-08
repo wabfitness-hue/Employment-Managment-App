@@ -298,3 +298,33 @@ class TestTrustedProxyCIDR:
             assert s.is_trusted_proxy("1.2.3.4") is False
         finally:
             s.TRUSTED_PROXY_IPS = original
+
+
+# ── MFA recovery codes ────────────────────────────────────────────────────────
+
+class TestRecoveryCodes:
+    def test_generate_format_and_uniqueness(self):
+        from app.core.security import generate_recovery_codes
+        import re
+        codes = generate_recovery_codes(10)
+        assert len(codes) == 10
+        assert len(set(codes)) == 10
+        assert all(re.fullmatch(r"[a-z0-9]{5}-[a-z0-9]{5}", c) for c in codes)
+
+    def test_hash_is_normalised(self):
+        from app.core.security import hash_recovery_code
+        assert hash_recovery_code("ABcde-23456") == hash_recovery_code("abcde-23456")
+        assert hash_recovery_code(" abcde-23456 ") == hash_recovery_code("abcde-23456")
+        assert hash_recovery_code("aaaaa-22222") != hash_recovery_code("bbbbb-33333")
+
+    def test_consume_recovery_code_once(self):
+        import types
+        from app.api.v1.auth import _set_recovery_codes, _consume_recovery_code, _recovery_hashes
+        user = types.SimpleNamespace(mfa_recovery_codes=None)
+        codes = _set_recovery_codes(user)
+        assert len(_recovery_hashes(user)) == 10
+        assert _consume_recovery_code(user, codes[0]) is True      # first use works
+        assert len(_recovery_hashes(user)) == 9                    # spent
+        assert _consume_recovery_code(user, codes[0]) is False     # no reuse
+        assert _consume_recovery_code(user, "zzzzz-zzzzz") is False # wrong code
+        assert _consume_recovery_code(user, "") is False           # empty

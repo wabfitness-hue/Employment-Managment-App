@@ -2,19 +2,56 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle, Link, Unlink, Plus, Trash2, ShieldCheck, KeyRound, Copy, Sun, Moon, Monitor } from 'lucide-react'
+import { CheckCircle, Link, Unlink, Plus, Trash2, ShieldCheck, KeyRound, Copy, Sun, Moon, Monitor, Download, RefreshCw, KeyRound as KeyIcon } from 'lucide-react'
 import QRCode from 'qrcode'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { getPrefixes, setPrefixes, changePassword, setupMfa, enableMfa, getMe } from '../api/auth'
+import { getPrefixes, setPrefixes, changePassword, setupMfa, enableMfa, getMe, regenerateRecoveryCodes, getRecoveryCodesStatus } from '../api/auth'
 import { useAuthStore } from '../store/auth'
 import { useThemeStore, type ThemeMode } from '../store/theme'
 import api from '../api/client'
 import type { IdPrefix } from '../types'
 
+function RecoveryCodesBox({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+  function copyAll() { navigator.clipboard?.writeText(codes.join('\n')) }
+  function download() {
+    const blob = new Blob([`EMS recovery codes — keep these safe. Each works once.\n\n${codes.join('\n')}\n`], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = 'ems-recovery-codes.txt'; a.click()
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3">
+      <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Save these recovery codes now — they won't be shown again.</p>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono text-sm text-gray-800 dark:text-gray-100">
+        {codes.map(c => <span key={c}>{c}</span>)}
+      </div>
+      <div className="flex gap-2">
+        <Button size="sm" variant="secondary" onClick={copyAll}><Copy className="h-4 w-4" /> Copy</Button>
+        <Button size="sm" variant="secondary" onClick={download}><Download className="h-4 w-4" /> Download</Button>
+        <Button size="sm" onClick={onDone}>I've saved them</Button>
+      </div>
+    </div>
+  )
+}
+
 function SecuritySection() {
   const { user, setUser } = useAuthStore()
+  const qc = useQueryClient()
+
+  // ── Recovery codes ──
+  const [newCodes, setNewCodes] = useState<string[] | null>(null)
+  const { data: recoveryStatus } = useQuery({
+    queryKey: ['recovery-status'],
+    queryFn: getRecoveryCodesStatus,
+    enabled: !!user?.mfa_enabled,
+  })
+  const regenMutation = useMutation({
+    mutationFn: regenerateRecoveryCodes,
+    onSuccess: (d) => { setNewCodes(d.codes); qc.invalidateQueries({ queryKey: ['recovery-status'] }) },
+  })
 
   // ── Change password ──
   const [curPwd, setCurPwd] = useState('')
@@ -58,11 +95,13 @@ function SecuritySection() {
 
   const confirmMfa = useMutation({
     mutationFn: () => enableMfa(mfaCode.trim()),
-    onSuccess: async () => {
+    onSuccess: async (d) => {
       setMfaMsg('')
       setMfaSecret(''); setQrData(''); setMfaCode('')
+      if (d?.recovery_codes?.length) setNewCodes(d.recovery_codes)  // show once
       const me = await getMe()
       setUser(me)
+      qc.invalidateQueries({ queryKey: ['recovery-status'] })
     },
     onError: (e: unknown) => {
       const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
@@ -122,6 +161,37 @@ function SecuritySection() {
           </div>
         )}
       </div>
+
+      {/* Recovery codes */}
+      {user?.mfa_enabled && (
+        <div className="border-t border-gray-100 dark:border-gray-800 pt-5 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <KeyIcon className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Recovery codes</span>
+            {recoveryStatus && (
+              <Badge variant={recoveryStatus.remaining > 0 ? 'green' : 'orange'}>
+                {recoveryStatus.remaining} left
+              </Badge>
+            )}
+          </div>
+          {newCodes ? (
+            <RecoveryCodesBox codes={newCodes} onDone={() => setNewCodes(null)} />
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                One-time codes to sign in if you lose your authenticator. Keep them somewhere safe.
+                {recoveryStatus && !recoveryStatus.configured && ' You have none yet — generate a set now.'}
+              </p>
+              <Button size="sm" variant="secondary" loading={regenMutation.isPending} onClick={() => regenMutation.mutate()}>
+                <RefreshCw className="h-4 w-4" /> {recoveryStatus?.configured ? 'Generate new codes' : 'Generate recovery codes'}
+              </Button>
+              {recoveryStatus?.configured && (
+                <p className="text-xs text-gray-400">Generating a new set replaces any existing codes.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Change password */}
       <div className="border-t border-gray-100 dark:border-gray-800 pt-5">

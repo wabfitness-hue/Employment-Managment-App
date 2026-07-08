@@ -22,6 +22,9 @@ export function LoginPage() {
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
   const [tempToken, setTempToken] = useState('')
   const [error, setError] = useState('')
+  const [recoveryMode, setRecoveryMode] = useState(false)
+  const [recoveryCode, setRecoveryCode] = useState('')
+  const [recoverySubmitting, setRecoverySubmitting] = useState(false)
   const { setUser } = useAuthStore()
   const navigate = useNavigate()
 
@@ -56,17 +59,32 @@ export function LoginPage() {
     }
   }
 
+  async function onMfaSuccess(res: { access_token: string; refresh_token: string }) {
+    localStorage.setItem('access_token', res.access_token)
+    localStorage.setItem('refresh_token', res.refresh_token)
+    const user = await getMe()
+    setUser(user)
+    navigate('/dashboard')
+  }
+
   async function handleMfa(data: MfaForm) {
     setError('')
     try {
-      const res = await verifyMfa(tempToken, data.mfa_token)
-      localStorage.setItem('access_token', res.access_token)
-      localStorage.setItem('refresh_token', res.refresh_token)
-      const user = await getMe()
-      setUser(user)
-      navigate('/dashboard')
+      await onMfaSuccess(await verifyMfa(tempToken, { totp_code: data.mfa_token }))
     } catch {
       setError('Invalid or expired MFA code.')
+    }
+  }
+
+  async function handleRecovery() {
+    setError('')
+    setRecoverySubmitting(true)
+    try {
+      await onMfaSuccess(await verifyMfa(tempToken, { recovery_code: recoveryCode.trim() }))
+    } catch {
+      setError('Invalid or already-used recovery code.')
+    } finally {
+      setRecoverySubmitting(false)
     }
   }
 
@@ -116,6 +134,31 @@ export function LoginPage() {
               Sign in
             </Button>
           </form>
+        ) : recoveryMode ? (
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Recovery code</label>
+              <input
+                type="text"
+                autoComplete="one-time-code"
+                value={recoveryCode}
+                onChange={e => setRecoveryCode(e.target.value)}
+                placeholder="xxxxx-xxxxx"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm font-mono tracking-wider focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Use one of the recovery codes you saved when setting up 2FA. Each code works once.</p>
+            </div>
+            <Button className="w-full" size="lg" loading={recoverySubmitting} disabled={!recoveryCode.trim()} onClick={handleRecovery}>
+              Verify recovery code
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setRecoveryMode(false); setError('') }}
+              className="w-full text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700"
+            >
+              Use authenticator code instead
+            </button>
+          </div>
         ) : (
           <form onSubmit={mfaForm.handleSubmit(handleMfa)} className="space-y-4">
             <Input
@@ -136,6 +179,13 @@ export function LoginPage() {
             >
               Verify
             </Button>
+            <button
+              type="button"
+              onClick={() => { setRecoveryMode(true); setError('') }}
+              className="w-full text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              Lost your authenticator? Use a recovery code
+            </button>
             <button
               type="button"
               onClick={() => setStep('credentials')}

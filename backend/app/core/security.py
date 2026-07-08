@@ -94,3 +94,29 @@ def verify_mfa_token(secret: str, token: str) -> bool:
 
 def generate_secure_token(nbytes: int = 32) -> str:
     return secrets.token_urlsafe(nbytes)
+
+
+# ── MFA recovery codes ───────────────────────────────────────────────────────
+# High-entropy one-time codes used to log in when the authenticator is lost.
+# Stored as SHA-256 hashes (fast is fine — the codes are random, not passwords).
+
+import hashlib
+
+_RECOVERY_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"  # no ambiguous chars
+
+
+def generate_recovery_codes(count: int = 10) -> list[str]:
+    """Return `count` fresh plaintext recovery codes, formatted xxxxx-xxxxx."""
+    codes = []
+    for _ in range(count):
+        raw = "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(10))
+        codes.append(f"{raw[:5]}-{raw[5:]}")
+    return codes
+
+
+def normalise_recovery_code(code: str) -> str:
+    return code.strip().lower().replace(" ", "")
+
+
+def hash_recovery_code(code: str) -> str:
+    return hashlib.sha256(normalise_recovery_code(code).encode()).hexdigest()

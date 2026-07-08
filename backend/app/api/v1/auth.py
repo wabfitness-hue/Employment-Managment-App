@@ -24,6 +24,7 @@ from app.core.security import (
     hash_password, verify_password, password_meets_policy,
     create_access_token, create_refresh_token, decode_token,
     generate_mfa_secret, get_mfa_provisioning_uri, verify_mfa_token,
+    generate_recovery_codes, hash_recovery_code,
 )
 from app.core.rate_limit import is_locked_out, record_failed_attempt, clear_attempts, seconds_until_unlock
 from app.core.audit import log_action
@@ -32,10 +33,12 @@ from app.core.dependencies import (
     require_super_admin, require_any_role,
 )
 from app.api.v1.schemas.auth import (
-    LoginRequest, MFAVerifyRequest, TokenResponse, MFASetupResponse,
+    LoginRequest, MFAVerifyRequest, MFALoginRequest, TokenResponse, MFASetupResponse,
+    RecoveryCodesResponse, RecoveryCodesStatus,
     RefreshRequest, ChangePasswordRequest, CreateUserRequest, UserResponse,
 )
 
+import json
 import uuid
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -44,6 +47,37 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 def _client_ip(request: Request) -> str:
     """Return the real client IP (CIDR-aware trusted-proxy handling)."""
     return client_ip(request)
+
+
+# ── MFA recovery-code storage helpers ─────────────────────────────────────────
+
+def _set_recovery_codes(user: AppUser) -> list[str]:
+    """Generate a fresh set of recovery codes, store their hashes, return plaintext."""
+    codes = generate_recovery_codes(10)
+    user.mfa_recovery_codes = json.dumps([hash_recovery_code(c) for c in codes])
+    return codes
+
+
+def _recovery_hashes(user: AppUser) -> list[str]:
+    if not user.mfa_recovery_codes:
+        return []
+    try:
+        return json.loads(user.mfa_recovery_codes)
+    except (ValueError, TypeError):
+        return []
+
+
+def _consume_recovery_code(user: AppUser, code: str) -> bool:
+    """If `code` matches an unused recovery code, spend it and return True."""
+    if not code:
+        return False
+    hashes = _recovery_hashes(user)
+    h = hash_recovery_code(code)
+    if h in hashes:
+        hashes.remove(h)
+        user.mfa_recovery_codes = json.dumps(hashes)
+        return True
+    return False
 
 
 # ── Login ────────────────────────────────────────────────────────────────────
@@ -103,14 +137,14 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
 
 @router.post("/mfa/verify", response_model=TokenResponse)
 def verify_mfa(
-    body: MFAVerifyRequest,
+    body: MFALoginRequest,
     request: Request,
     db: Session = Depends(get_db),
     user: AppUser = Depends(get_current_user_no_mfa_check),
 ):
     ip = _client_ip(request)
 
-    # Reuse the same rate limiter keyed on ip+email to prevent brute-force of TOTP codes
+    # Reuse the same rate limiter keyed on ip+email to prevent brute-force of codes
     if is_locked_out(ip, user.email):
         secs = seconds_until_unlock(ip, user.email)
         raise HTTPException(
@@ -121,16 +155,24 @@ def verify_mfa(
     if not user.mfa_enabled or not user.mfa_secret:
         raise HTTPException(status_code=400, detail="MFA is not enabled on this account.")
 
-    if not verify_mfa_token(user.mfa_secret, body.totp_code):
+    # Accept either the authenticator (TOTP) code or a one-time recovery code.
+    if body.recovery_code:
+        ok = _consume_recovery_code(user, body.recovery_code)
+        method = "recovery_code"
+    else:
+        ok = bool(body.totp_code) and verify_mfa_token(user.mfa_secret, body.totp_code)
+        method = "totp"
+
+    if not ok:
         record_failed_attempt(ip, user.email)
-        log_action(db, "mfa_failed", user_id=str(user.id), ip_address=ip)
+        log_action(db, "mfa_failed", user_id=str(user.id), ip_address=ip, detail={"method": method})
         db.commit()
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid MFA code.")
 
     clear_attempts(ip, user.email)
     access = create_access_token(str(user.id), user.role.value, mfa_verified=True)
     refresh = create_refresh_token(str(user.id))
-    log_action(db, "mfa_success", user_id=str(user.id), ip_address=ip)
+    log_action(db, "mfa_success", user_id=str(user.id), ip_address=ip, detail={"method": method})
     db.commit()
     return TokenResponse(access_token=access, refresh_token=refresh)
 
@@ -168,9 +210,35 @@ def enable_mfa(
     if not verify_mfa_token(user.mfa_secret, body.totp_code):
         raise HTTPException(status_code=401, detail="Invalid TOTP code — MFA not enabled.")
     user.mfa_enabled = True
+    codes = _set_recovery_codes(user)  # issue recovery codes on enable
     log_action(db, "mfa_enabled", user_id=str(user.id))
     db.commit()
-    return {"message": "MFA enabled successfully."}
+    return {"message": "MFA enabled successfully.", "recovery_codes": codes}
+
+
+# ── MFA recovery codes ────────────────────────────────────────────────────────
+
+@router.post("/mfa/recovery-codes", response_model=RecoveryCodesResponse)
+def regenerate_recovery_codes(
+    db: Session = Depends(get_db),
+    user: AppUser = Depends(get_current_user),
+):
+    """Generate a fresh set of recovery codes (invalidates any existing set).
+    Requires a fully authenticated (MFA-verified) session."""
+    if not user.mfa_enabled:
+        raise HTTPException(status_code=400, detail="Enable MFA before generating recovery codes.")
+    codes = _set_recovery_codes(user)
+    log_action(db, "mfa_recovery_codes_regenerated", user_id=str(user.id))
+    db.commit()
+    return RecoveryCodesResponse(codes=codes, remaining=len(codes))
+
+
+@router.get("/mfa/recovery-codes", response_model=RecoveryCodesStatus)
+def recovery_codes_status(
+    user: AppUser = Depends(get_current_user),
+):
+    hashes = _recovery_hashes(user)
+    return RecoveryCodesStatus(configured=bool(hashes), remaining=len(hashes))
 
 
 # ── Token refresh ─────────────────────────────────────────────────────────────

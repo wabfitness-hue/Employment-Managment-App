@@ -22,6 +22,27 @@ class MFAVerifyRequest(BaseModel):
         return v.replace(" ", "").strip()
 
 
+class MFALoginRequest(BaseModel):
+    """Login MFA step: either an authenticator code OR a recovery code."""
+    totp_code: Optional[str] = None
+    recovery_code: Optional[str] = None
+
+    @field_validator("totp_code", "recovery_code")
+    @classmethod
+    def strip_spaces(cls, v):
+        return v.replace(" ", "").strip() if isinstance(v, str) else v
+
+
+class RecoveryCodesResponse(BaseModel):
+    codes: list[str]
+    remaining: int
+
+
+class RecoveryCodesStatus(BaseModel):
+    configured: bool
+    remaining: int
+
+
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str

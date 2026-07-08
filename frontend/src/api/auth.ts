@@ -4,10 +4,10 @@ import type { AuthUser, LoginResponse } from '../types'
 export const login = (email: string, password: string) =>
   api.post<LoginResponse>('/auth/login', { email, password }).then(r => r.data)
 
-export const verifyMfa = (preAuthToken: string, totp_code: string) =>
+export const verifyMfa = (preAuthToken: string, creds: { totp_code?: string; recovery_code?: string }) =>
   api.post<LoginResponse>(
     '/auth/mfa/verify',
-    { totp_code },
+    creds,
     { headers: { Authorization: `Bearer ${preAuthToken}` } },
   ).then(r => r.data)
 
@@ -21,7 +21,13 @@ export const setupMfa = () =>
   api.post<{ secret: string; provisioning_uri: string }>('/auth/mfa/setup').then(r => r.data)
 
 export const enableMfa = (totp_code: string) =>
-  api.post('/auth/mfa/enable', { totp_code }).then(r => r.data)
+  api.post<{ message: string; recovery_codes: string[] }>('/auth/mfa/enable', { totp_code }).then(r => r.data)
+
+export const regenerateRecoveryCodes = () =>
+  api.post<{ codes: string[]; remaining: number }>('/auth/mfa/recovery-codes').then(r => r.data)
+
+export const getRecoveryCodesStatus = () =>
+  api.get<{ configured: boolean; remaining: number }>('/auth/mfa/recovery-codes').then(r => r.data)
 
 export const setupStatus = () =>
   api.get<{ setup_required: boolean; has_company: boolean; has_users: boolean }>('/setup/status').then(r => r.data)

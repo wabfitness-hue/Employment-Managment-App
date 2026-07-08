@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, String, Enum, Boolean, DateTime, Integer, ForeignKey
+from sqlalchemy import Column, String, Enum, Boolean, DateTime, Integer, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from .base import Base, UUIDMixin, TimestampMixin, UUIDType
 
@@ -21,6 +21,8 @@ class AppUser(Base, UUIDMixin, TimestampMixin):
 
     mfa_secret = Column(String(200), nullable=True)
     mfa_enabled = Column(Boolean, default=False, nullable=False)
+    # JSON list of hashed one-time MFA recovery codes (for authenticator loss)
+    mfa_recovery_codes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, default=True, nullable=False)
     last_login = Column(DateTime(timezone=True), nullable=True)
