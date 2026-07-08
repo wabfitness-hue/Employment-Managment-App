@@ -16,6 +16,7 @@ from .api.v1 import setup as setup_router
 from .api.v1 import outlook as outlook_router
 from .api.v1 import companies as companies_router
 from .api.v1 import access as access_router
+from .api.v1 import audit as audit_router
 from .core.config import get_settings
 
 settings = get_settings()
@@ -73,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(outlook_router.router, prefix="/api/v1")
     app.include_router(companies_router.router, prefix="/api/v1")
     app.include_router(access_router.router, prefix="/api/v1")
+    app.include_router(audit_router.router, prefix="/api/v1")
 
     @app.get("/api/health")
     def health():

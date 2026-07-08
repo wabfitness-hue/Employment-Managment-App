@@ -464,3 +464,49 @@ class TestSetupWizard:
             "full_name": "Admin User",
         })
         assert r.status_code == 422
+
+
+# ── Audit log viewer ──────────────────────────────────────────────────────────
+
+@pytest.fixture
+def it_client(client):
+    """`client` with the IT-admin auth dependency satisfied (for the audit routes)."""
+    from app.core.dependencies import require_it_or_above
+    from app.models.app_user import AppUser, UserRole
+    client.app.dependency_overrides[require_it_or_above] = lambda: AppUser(
+        email="it@test.com", display_name="IT", password_hash="x", role=UserRole.it_admin,
+    )
+    yield client
+    client.app.dependency_overrides.pop(require_it_or_above, None)
+
+
+class TestAuditLog:
+    def test_requires_auth(self, client):
+        assert client.get("/api/v1/audit").status_code in (401, 403)
+
+    def test_lists_entries(self, it_client):
+        client = it_client
+        # A failed login writes a "login_failed" audit entry.
+        client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "wrong"})
+        r = client.get("/api/v1/audit")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total"] >= 1
+        assert any(i["action"] == "login_failed" for i in data["items"])
+        # newest-first
+        ts = [i["timestamp"] for i in data["items"] if i["timestamp"]]
+        assert ts == sorted(ts, reverse=True)
+
+    def test_filter_by_action(self, it_client):
+        client = it_client
+        client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "wrong"})
+        r = client.get("/api/v1/audit", params={"action": "login_failed"})
+        assert r.status_code == 200
+        assert all(i["action"] == "login_failed" for i in r.json()["items"])
+
+    def test_actions_list(self, it_client):
+        client = it_client
+        client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "wrong"})
+        r = client.get("/api/v1/audit/actions")
+        assert r.status_code == 200
+        assert "login_failed" in r.json()["actions"]

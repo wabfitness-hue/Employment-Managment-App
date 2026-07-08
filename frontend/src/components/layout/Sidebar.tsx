@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Users, FileText, Upload,
-  CreditCard, Settings, Wifi, Shield, LogOut
+  CreditCard, Settings, Wifi, Shield, LogOut, ScrollText
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useBridgeStore } from '../../store/bridge'
@@ -14,12 +14,16 @@ const navItems = [
   { to: '/cards',      label: 'ID Cards',    icon: CreditCard },
   { to: '/import',     label: 'Import',      icon: Upload },
   { to: '/access',     label: 'Access',      icon: Shield },
+  // IT/Super admins only — audit log is sensitive
+  { to: '/audit',      label: 'Audit log',   icon: ScrollText, roles: ['super_admin', 'it_admin'] },
   { to: '/settings',   label: 'Settings',    icon: Settings },
 ]
 
 export function Sidebar() {
   const { user, logout } = useAuthStore()
   const { status } = useBridgeStore()
+
+  const visibleNav = navItems.filter(item => !item.roles || item.roles.includes(user?.role ?? ''))
 
   const bridgeColour = status === 'connected' ? 'text-green-500' : status === 'connecting' ? 'text-yellow-500' : 'text-gray-400'
 
@@ -33,7 +37,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto">
-        {navItems.map(({ to, label, icon: Icon }) => (
+        {visibleNav.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
