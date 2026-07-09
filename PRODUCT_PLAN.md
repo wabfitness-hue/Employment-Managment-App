@@ -78,9 +78,11 @@ manages.
 ## 5. Paid-product layers (separate from packaging)
 
 1. **Licensing / activation** — signed keys, **offline** validation + **online**
-   seat/revocation checks (e.g. Lemon Squeezy or Keygen).
-2. **Payments / distribution** — Lemon Squeezy / Paddle (handle checkout, tax,
-   license delivery) or own site + Stripe.
+   seat/revocation checks, via **Lemon Squeezy** (decided 2026-07-09 — see below).
+2. **Payments / distribution** — **Lemon Squeezy**, same vendor as licensing.
+   Handles checkout, tax/VAT compliance (merchant of record), and license-key
+   delivery in one integration rather than stitching a separate processor
+   (e.g. Stripe) to a dedicated licensing service.
 3. **Code signing** — Windows Authenticode (~$100–400/yr) + Apple notarization
    ($99/yr). Required to avoid "unknown developer" warnings.
 4. **Auto-update** — so buyers receive fixes.
@@ -130,7 +132,7 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 
 - [x] **Windows-only first**, or all three OSes at once? → **DECIDED (2026-07-09): Windows-only first.** macOS/Linux considered later once Windows is proven (§7 step 6).
 - [x] Bundled Postgres everywhere, or SQLite "Lite" tier? → **DECIDED (2026-07-09): Postgres everywhere.** See §3.
-- [ ] Licensing/payment vendor (recommend starting with Lemon Squeezy)
+- [x] Licensing/payment vendor → **DECIDED (2026-07-09): Lemon Squeezy.** See §5.
 - [ ] Budget for yearly code-signing certificates
 - [ ] Which NFC card type will be issued (MIFARE / DESFire / NTAG) — UID read works with all
 
