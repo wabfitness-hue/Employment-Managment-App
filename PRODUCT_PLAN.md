@@ -137,13 +137,18 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 - Honest status always; failures surfaced plainly.
 - **Build nothing until explicitly approved.**
 
-## 9. Open decisions before building
+## 9. Decisions before building (all settled 2026-07-09)
 
 - [x] **Windows-only first**, or all three OSes at once? → **DECIDED (2026-07-09): Windows-only first.** macOS/Linux considered later once Windows is proven (§7 step 6).
 - [x] Bundled Postgres everywhere, or SQLite "Lite" tier? → **DECIDED (2026-07-09): Postgres everywhere.** See §3.
 - [x] Licensing/payment vendor → **DECIDED (2026-07-09): Lemon Squeezy.** See §5.
 - [x] Budget for yearly code-signing certificates → **DECIDED (2026-07-09): Standard (OV), ~$100–200/yr (roughly £80–160/yr).** See §5.
-- [ ] Which NFC card type will be issued (MIFARE / DESFire / NTAG) — UID read works with all
+- [x] Which NFC card type will be issued → **DECIDED (2026-07-09): MIFARE Classic**
+  (cheapest, most universally supported; only the UID is read, so DESFire's
+  on-card encryption isn't needed). Accepted trade-off: MIFARE Classic UIDs can in
+  principle be cloned with physical access — a normal, accepted risk for basic
+  office access-control. NTAG/DESFire remain available as an upgrade path for
+  security-sensitive customers later; no app changes needed to support that.
 
 ## 10. Biggest risks
 
