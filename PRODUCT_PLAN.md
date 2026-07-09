@@ -72,7 +72,8 @@ manages.
   - NFC reader: ACS ACR122U · alternatives: HID Omnikey 5427, Identiv uTrust 3700 F.
   - Card printer: Zebra ZC300 (dedicated ZPL path in the bridge) · alternatives:
     Evolis Primacy 2, Magicard 300 · Evolis Badgy200 as a cheap starter.
-  - Consumables (ongoing): colour ribbon (~$100–200), blank CR80 PVC cards (~$30–60 / 500).
+  - Consumables (ongoing): colour ribbon (~$100–200, roughly £80–160), blank CR80
+    PVC cards (~$30–60 / 500, roughly £25–48 / 500).
   - *Prices are rough 2026 ballparks — verify before buying.*
 
 ## 5. Paid-product layers (separate from packaging)
@@ -83,8 +84,16 @@ manages.
    Handles checkout, tax/VAT compliance (merchant of record), and license-key
    delivery in one integration rather than stitching a separate processor
    (e.g. Stripe) to a dedicated licensing service.
-3. **Code signing** — Windows Authenticode (~$100–400/yr) + Apple notarization
-   ($99/yr). Required to avoid "unknown developer" warnings.
+3. **Code signing** — Windows Authenticode. **Decided (2026-07-09): Standard (OV)
+   certificate, ~$100–200/yr (roughly £80–160/yr)**, not EV (~$300–400/yr, roughly
+   £240–320/yr). OV is cheaper and faster to obtain; Windows may show a mild
+   SmartScreen warning until the cert builds install-volume reputation, which is
+   normal for a new product and can be revisited (upgrade to EV) once install
+   volume justifies it. Apple notarization ($99/yr, roughly £78/yr) is not
+   relevant yet — only needed once/if a macOS build happens (§7 step 6). Required
+   to avoid "unknown developer" warnings on install.
+   *(GBP figures are rough guidance at ~$1 = £0.79 — vendors bill in USD; your
+   actual cost depends on the exchange rate at time of payment.)*
 4. **Auto-update** — so buyers receive fixes.
 
 ## 6. De-risking spikes (run BEFORE the real build)
@@ -133,7 +142,7 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 - [x] **Windows-only first**, or all three OSes at once? → **DECIDED (2026-07-09): Windows-only first.** macOS/Linux considered later once Windows is proven (§7 step 6).
 - [x] Bundled Postgres everywhere, or SQLite "Lite" tier? → **DECIDED (2026-07-09): Postgres everywhere.** See §3.
 - [x] Licensing/payment vendor → **DECIDED (2026-07-09): Lemon Squeezy.** See §5.
-- [ ] Budget for yearly code-signing certificates
+- [x] Budget for yearly code-signing certificates → **DECIDED (2026-07-09): Standard (OV), ~$100–200/yr (roughly £80–160/yr).** See §5.
 - [ ] Which NFC card type will be issued (MIFARE / DESFire / NTAG) — UID read works with all
 
 ## 10. Biggest risks
