@@ -539,3 +539,75 @@ class TestPeopleExport:
         assert "text/csv" in r.headers["content-type"]
         assert "attachment" in r.headers.get("content-disposition", "")
         assert r.text.splitlines()[0].startswith("Employee ID,First Name,Last Name,Email")
+
+
+# ── Printers CRUD ─────────────────────────────────────────────────────────────
+
+@pytest.fixture
+def hr_client2(client):
+    """A second HR-scoped client fixture (own name to avoid collisions), for
+    the printers tests — user is inserted so audit-log FK writes succeed."""
+    from app.database import get_db
+    from app.core.dependencies import require_hr_or_above, require_any_role
+    from app.models.app_user import AppUser, UserRole
+    db = client.app.dependency_overrides[get_db]()
+    user = AppUser(id=uuid.uuid4(), email="hr-printers@test.com", display_name="HR",
+                   password_hash="x", role=UserRole.hr_admin)
+    db.add(user); db.commit()
+    client.app.dependency_overrides[require_hr_or_above] = lambda: user
+    client.app.dependency_overrides[require_any_role] = lambda: user
+    yield client
+    client.app.dependency_overrides.pop(require_hr_or_above, None)
+    client.app.dependency_overrides.pop(require_any_role, None)
+
+
+class TestPrinters:
+    def test_requires_auth_to_list(self, client):
+        assert client.get("/api/v1/printers").status_code in (401, 403)
+
+    def test_create_and_list_os_printer(self, hr_client2):
+        client = hr_client2
+        r = client.post("/api/v1/printers", json={
+            "label": "3rd Floor Printer", "target_type": "os", "target": "HP LaserJet",
+        })
+        assert r.status_code == 200
+        data = r.json()
+        assert data["label"] == "3rd Floor Printer"
+        assert data["target_type"] == "os"
+
+        r2 = client.get("/api/v1/printers")
+        assert r2.status_code == 200
+        assert any(p["label"] == "3rd Floor Printer" for p in r2.json())
+
+    def test_zebra_requires_valid_ip(self, hr_client2):
+        client = hr_client2
+        r = client.post("/api/v1/printers", json={
+            "label": "Zebra Card Printer", "target_type": "zebra", "target": "not-an-ip",
+        })
+        assert r.status_code == 422
+
+    def test_zebra_valid_ip_accepted(self, hr_client2):
+        client = hr_client2
+        r = client.post("/api/v1/printers", json={
+            "label": "Zebra Card Printer", "target_type": "zebra", "target": "192.168.1.50",
+        })
+        assert r.status_code == 200
+        assert r.json()["target"] == "192.168.1.50"
+
+    def test_delete_printer(self, hr_client2):
+        client = hr_client2
+        r = client.post("/api/v1/printers", json={
+            "label": "Temp Printer", "target_type": "os", "target": "Temp",
+        })
+        pid = r.json()["id"]
+        r2 = client.delete(f"/api/v1/printers/{pid}")
+        assert r2.status_code == 200
+        r3 = client.get("/api/v1/printers")
+        assert not any(p["id"] == pid for p in r3.json())
+
+    def test_blank_label_rejected(self, hr_client2):
+        client = hr_client2
+        r = client.post("/api/v1/printers", json={
+            "label": "   ", "target_type": "os", "target": "Something",
+        })
+        assert r.status_code == 422

@@ -9,6 +9,7 @@ from .import_job import ImportJob
 from .card_event import CardEvent
 from .access import AccessZone, AccessProfile, AccessProfileZone, PersonAccess, PersonAccessZone
 from .outlook_token import OutlookToken
+from .printer import Printer, PrinterTargetType
 
 __all__ = [
     "Base",
@@ -26,4 +27,6 @@ __all__ = [
     "PersonAccess",
     "PersonAccessZone",
     "OutlookToken",
+    "Printer",
+    "PrinterTargetType",
 ]

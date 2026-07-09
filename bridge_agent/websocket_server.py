@@ -30,7 +30,7 @@ except ImportError:
 from . import protocol
 from .config import WS_HOST, WS_PORT, BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE
 from .nfc_reader import NFCReader
-from .card_printer import CardPrinter
+from .card_printer import CardPrinter, OSPrintQueuePrinter, ZebraPrinter
 
 logger = logging.getLogger(__name__)
 
@@ -165,10 +165,29 @@ class BridgeServer:
         else:
             await ws.send(protocol.encode(protocol.make_error(f"Unknown message type: {msg_type!r}")))
 
+    def _resolve_printer(self, msg: dict) -> CardPrinter:
+        """
+        Pick which printer to use for this print job. If the client specified a
+        target (per-print picker in the app), use that; otherwise fall back to
+        the bridge's configured default printer.
+        """
+        target_info = msg.get("printer")
+        if not isinstance(target_info, dict):
+            return self._printer
+
+        target_type = target_info.get("target_type")
+        target = target_info.get("target", "")
+        if target_type == "zebra" and target:
+            return ZebraPrinter(host=target)
+        if target_type == "os" and target:
+            return OSPrintQueuePrinter(name=target)
+        return self._printer
+
     async def _handle_print(self, ws: WebSocketServerProtocol, msg: dict) -> None:
         request_id = msg.get("request_id", "")
         pdf_b64 = msg.get("pdf_b64", "")
         copies = max(1, min(int(msg.get("copies", 1)), 10))
+        printer = self._resolve_printer(msg)
 
         if not pdf_b64:
             await ws.send(protocol.encode(protocol.make_print_error(request_id, "No PDF data provided.")))
@@ -190,7 +209,7 @@ class BridgeServer:
 
         try:
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(None, lambda: self._printer.print_card(pdf_bytes, copies))
+            await loop.run_in_executor(None, lambda: printer.print_card(pdf_bytes, copies))
             await ws.send(protocol.encode(protocol.make_print_ok(request_id)))
             logger.info("Card printed (request_id=%s, copies=%d)", request_id, copies)
         except Exception as exc:

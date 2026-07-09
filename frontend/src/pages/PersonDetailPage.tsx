@@ -13,6 +13,7 @@ import { getPerson, getPhotoUrl, uploadPhotoBase64, assignNfc, setPersonStatus, 
 import { CARD_STATUSES } from '../types'
 import { renewContract } from '../api/contracts'
 import { downloadCard } from '../api/cards'
+import { listPrinters } from '../api/printers'
 import { useBridgeStore } from '../store/bridge'
 
 function InfoRow({ label, value }: { label: string; value?: string | null }) {
@@ -43,6 +44,10 @@ export function PersonDetailPage() {
   const [tempUid, setTempUid] = useState('')
   const [tempReading, setTempReading] = useState(false)
   const [tempError, setTempError] = useState('')
+  const [printModal, setPrintModal] = useState(false)
+  const [selectedPrinterId, setSelectedPrinterId] = useState('')
+  const [printing, setPrinting] = useState(false)
+  const [printMsg, setPrintMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const { data: person, isLoading } = useQuery({
@@ -124,7 +129,13 @@ export function PersonDetailPage() {
     }
   }, [person?.id, person?.card_status, person?.card_status_note])
 
-  const { sendReadOnce, setOnTap, status: bridgeStatus } = useBridgeStore()
+  const { sendReadOnce, sendPrint, setOnTap, status: bridgeStatus } = useBridgeStore()
+
+  const { data: printers = [] } = useQuery({ queryKey: ['printers'], queryFn: listPrinters })
+
+  useEffect(() => {
+    if (printers.length > 0 && !selectedPrinterId) setSelectedPrinterId(printers[0].id)
+  }, [printers, selectedPrinterId])
 
   function handlePhotoFile(file: File) {
     // Load the file, then let the user crop to head & shoulders before upload.
@@ -169,6 +180,35 @@ export function PersonDetailPage() {
     URL.revokeObjectURL(url)
   }
 
+  async function blobToBase64(blob: Blob): Promise<string> {
+    const buf = await blob.arrayBuffer()
+    let binary = ''
+    const bytes = new Uint8Array(buf)
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+    return btoa(binary)
+  }
+
+  async function handlePrintToPrinter() {
+    setPrintMsg(null)
+    setPrinting(true)
+    try {
+      const blob = await downloadCard(id!)
+      const pdfB64 = await blobToBase64(blob)
+      const printer = printers.find(p => p.id === selectedPrinterId)
+      await sendPrint(
+        pdfB64,
+        crypto.randomUUID(),
+        1,
+        printer ? { target_type: printer.target_type, target: printer.target } : undefined,
+      )
+      setPrintMsg({ ok: true, text: 'Sent to printer.' })
+    } catch (e: unknown) {
+      setPrintMsg({ ok: false, text: e instanceof Error ? e.message : 'Print failed.' })
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   if (isLoading) return <div className="flex items-center justify-center py-20 text-gray-400">Loading…</div>
   if (!person) return <div className="text-center py-20 text-gray-500 dark:text-gray-400">Person not found.</div>
 
@@ -185,7 +225,7 @@ export function PersonDetailPage() {
         <Button variant="secondary" size="sm" onClick={() => navigate(`/people/${id}/edit`)}>
           <Edit className="h-4 w-4" /> Edit
         </Button>
-        <Button size="sm" onClick={handleDownloadCard}>
+        <Button size="sm" onClick={() => { setPrintMsg(null); setPrintModal(true) }}>
           <CreditCard className="h-4 w-4" /> Print card
         </Button>
       </div>
@@ -510,6 +550,56 @@ export function PersonDetailPage() {
               <Button variant="secondary" onClick={() => { setNfcStatus('idle'); startNfcEnrol() }}>Retry</Button>
             </>
           )}
+        </div>
+      </Modal>
+
+      {/* Print Card Modal */}
+      <Modal open={printModal} onClose={() => setPrintModal(false)} title="Print card">
+        <div className="space-y-4">
+          {printers.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Printer</label>
+              <select
+                value={selectedPrinterId}
+                onChange={e => setSelectedPrinterId(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm"
+              >
+                {printers.map(p => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {printers.length === 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No printers configured yet. Add one in Settings, or download the PDF and print it manually.
+            </p>
+          )}
+
+          {bridgeStatus !== 'connected' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Bridge agent not connected — printing directly isn't available right now. You can still download the PDF.
+            </p>
+          )}
+
+          {printMsg && (
+            <p className={`text-sm ${printMsg.ok ? 'text-green-600' : 'text-red-600'}`}>{printMsg.text}</p>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              className="flex-1"
+              loading={printing}
+              disabled={bridgeStatus !== 'connected' || printers.length === 0}
+              onClick={handlePrintToPrinter}
+            >
+              <CreditCard className="h-4 w-4" /> Print
+            </Button>
+            <Button variant="secondary" onClick={handleDownloadCard}>
+              Download PDF
+            </Button>
+          </div>
         </div>
       </Modal>
 

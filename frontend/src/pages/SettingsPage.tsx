@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { clsx } from 'clsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle, Link, Unlink, Plus, Trash2, ShieldCheck, KeyRound, Copy, Sun, Moon, Monitor, Download, RefreshCw, KeyRound as KeyIcon } from 'lucide-react'
+import { CheckCircle, Link, Unlink, Plus, Trash2, ShieldCheck, KeyRound, Copy, Sun, Moon, Monitor, Download, RefreshCw, KeyRound as KeyIcon, Printer as PrinterIcon } from 'lucide-react'
 import QRCode from 'qrcode'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { getPrefixes, setPrefixes, changePassword, setupMfa, enableMfa, getMe, regenerateRecoveryCodes, getRecoveryCodesStatus } from '../api/auth'
+import { listPrinters, createPrinter, deletePrinter, type PrinterTargetType } from '../api/printers'
 import { useAuthStore } from '../store/auth'
 import { useThemeStore, type ThemeMode } from '../store/theme'
 import api from '../api/client'
@@ -376,6 +377,95 @@ function PrefixesSection() {
   )
 }
 
+function PrintersSection() {
+  const qc = useQueryClient()
+  const { data: printers = [] } = useQuery({ queryKey: ['printers'], queryFn: listPrinters })
+  const [label, setLabel] = useState('')
+  const [targetType, setTargetType] = useState<PrinterTargetType>('os')
+  const [target, setTarget] = useState('')
+  const [error, setError] = useState('')
+
+  const addMutation = useMutation({
+    mutationFn: () => createPrinter({ label: label.trim(), target_type: targetType, target: target.trim() }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['printers'] })
+      setLabel(''); setTarget(''); setError('')
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setError(detail ?? 'Could not add printer.')
+    },
+  })
+
+  const removeMutation = useMutation({
+    mutationFn: (id: string) => deletePrinter(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['printers'] }),
+  })
+
+  return (
+    <Card>
+      <CardHeader
+        title="Printers"
+        subtitle="Add the printers staff can choose from when printing an ID card"
+      />
+      <div className="space-y-2 mb-4">
+        {printers.map(p => (
+          <div key={p.id} className="flex items-center gap-3 py-2 border-b border-gray-50 dark:border-gray-800 last:border-0">
+            <PrinterIcon className="h-4 w-4 text-gray-400 shrink-0" />
+            <span className="flex-1 text-sm text-gray-900 dark:text-gray-100">{p.label}</span>
+            <Badge variant={p.target_type === 'zebra' ? 'orange' : 'blue'}>{p.target_type === 'zebra' ? 'Zebra (IP)' : 'Network printer'}</Badge>
+            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{p.target}</span>
+            <button onClick={() => removeMutation.mutate(p.id)} className="text-red-500 hover:text-red-700 p-1">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        {printers.length === 0 && (
+          <p className="text-sm text-gray-400">No printers added yet.</p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 items-end border-t border-gray-100 dark:border-gray-800 pt-4">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Label</label>
+          <input
+            value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="e.g. 3rd Floor Printer"
+            className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm w-48"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">Type</label>
+          <select
+            value={targetType}
+            onChange={e => setTargetType(e.target.value as PrinterTargetType)}
+            className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm"
+          >
+            <option value="os">Network printer (by name)</option>
+            <option value="zebra">Zebra card printer (by IP)</option>
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {targetType === 'zebra' ? 'IP address' : 'Printer name (as in Windows)'}
+          </label>
+          <input
+            value={target}
+            onChange={e => setTarget(e.target.value)}
+            placeholder={targetType === 'zebra' ? '192.168.1.50' : 'HP LaserJet 3rd Floor'}
+            className="px-2 py-1.5 rounded border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm w-56"
+          />
+        </div>
+        <Button size="sm" loading={addMutation.isPending} disabled={!label.trim() || !target.trim()} onClick={() => addMutation.mutate()}>
+          <Plus className="h-4 w-4" /> Add printer
+        </Button>
+      </div>
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+    </Card>
+  )
+}
+
 function AppearanceSection() {
   const { mode, setMode } = useThemeStore()
   const options: { value: ThemeMode; label: string; icon: typeof Sun; hint: string }[] = [
@@ -420,6 +510,7 @@ export function SettingsPage() {
       <SecuritySection />
       <OutlookSection />
       <PrefixesSection />
+      <PrintersSection />
     </div>
   )
 }

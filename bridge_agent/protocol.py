@@ -6,7 +6,8 @@ All messages are JSON objects with a required "type" field.
 Web app → Bridge agent:
   {"type": "auth",    "secret": "..."}
   {"type": "status"}
-  {"type": "print_card", "request_id": "...", "pdf_b64": "...", "printer": "optional-name"}
+  {"type": "print_card", "request_id": "...", "pdf_b64": "...", "copies": 1,
+   "printer": {"target_type": "os"|"zebra", "target": "printer-name-or-ip"}}  # optional — falls back to the bridge's configured default
   {"type": "encode_nfc", "request_id": "...", "uid": "A1B2C3D4", "employee_id": "DIR-0001"}
   {"type": "read_nfc_once"}          — one-shot read, used for NFC enrollment
 
