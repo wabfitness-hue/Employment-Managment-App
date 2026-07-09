@@ -123,7 +123,7 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 
 ## 9. Open decisions before building
 
-- [ ] Windows-only first, or all three OSes at once? (recommend Windows-first)
+- [x] **Windows-only first**, or all three OSes at once? → **DECIDED (2026-07-09): Windows-only first.** macOS/Linux considered later once Windows is proven (§7 step 6).
 - [ ] Bundled Postgres everywhere, or SQLite "Lite" tier + Postgres for bigger installs?
 - [ ] Licensing/payment vendor (recommend starting with Lemon Squeezy)
 - [ ] Budget for yearly code-signing certificates
