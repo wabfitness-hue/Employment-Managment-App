@@ -31,14 +31,19 @@ One architecture that scales from a single-person office to a whole company:
 |---|---|---|
 | Distribution | `docker compose` | Native installers (`.msi` / `.dmg` / `.AppImage`) |
 | Dependencies | Requires Docker Desktop | Zero — everything bundled |
-| Database | Postgres container | Bundled Postgres (or SQLite for a "Lite" tier) |
+| Database | Postgres container | Bundled Postgres (same engine for every install size) |
 | Redis | Container | Replaced with in-process equivalents |
 | Launch | Terminal | Native launcher (**Tauri** — small downloads) |
 | Hardware bridge | Manual host process | Bundled, optional, auto-detected |
 
-*Note: the ORM already runs on SQLite (the test suite proves it), so the database
-layer is most of the way there. Migrations currently use Postgres-specific types
-(JSONB/UUID) and would need attention for a SQLite tier.*
+**Decision (2026-07-09): Postgres everywhere — no SQLite tier.** One database
+engine for every customer, from a 1-person office to a large company. Rejected a
+SQLite "Lite" tier to avoid maintaining two DB code paths (the app already uses
+Postgres-specific types — JSONB/UUID — that a SQLite tier would need to work
+around) and to avoid a painful SQLite→Postgres migration if a small customer
+grows. The bundled Postgres runs as a quiet background service managed by the
+native launcher, alongside the backend and hardware bridge processes it already
+manages.
 
 ## 4. Hardware — optional, plug-and-play, bring-your-own
 
@@ -124,7 +129,7 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 ## 9. Open decisions before building
 
 - [x] **Windows-only first**, or all three OSes at once? → **DECIDED (2026-07-09): Windows-only first.** macOS/Linux considered later once Windows is proven (§7 step 6).
-- [ ] Bundled Postgres everywhere, or SQLite "Lite" tier + Postgres for bigger installs?
+- [x] Bundled Postgres everywhere, or SQLite "Lite" tier? → **DECIDED (2026-07-09): Postgres everywhere.** See §3.
 - [ ] Licensing/payment vendor (recommend starting with Lemon Squeezy)
 - [ ] Budget for yearly code-signing certificates
 - [ ] Which NFC card type will be issued (MIFARE / DESFire / NTAG) — UID read works with all
