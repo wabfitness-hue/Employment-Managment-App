@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Edit, CreditCard, RefreshCw, Camera, Upload, Nfc, Power, Trash2, AlertTriangle, IdCard, Check } from 'lucide-react'
+import { ArrowLeft, Edit, CreditCard, RefreshCw, Camera, Upload, Nfc, Power, Trash2, AlertTriangle, IdCard, Check, LogIn, LogOut, ChevronLeft, ChevronRight } from 'lucide-react'
 import { WebcamCapture } from '../components/ui/WebcamCapture'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -9,7 +9,7 @@ import { Modal } from '../components/ui/Modal'
 import { PhotoCropper } from '../components/ui/PhotoCropper'
 import { PersonTypeBadge, StatusBadge, ExpiryBadge } from '../components/ui/Badge'
 import { AuthImg } from '../components/ui/AuthImg'
-import { getPerson, getPhotoUrl, uploadPhotoBase64, assignNfc, setPersonStatus, deletePerson, setCardStatus, issueTempCard, returnTempCard } from '../api/people'
+import { getPerson, getPhotoUrl, uploadPhotoBase64, assignNfc, setPersonStatus, deletePerson, setCardStatus, issueTempCard, returnTempCard, getAccessLog } from '../api/people'
 import { CARD_STATUSES } from '../types'
 import { renewContract } from '../api/contracts'
 import { downloadCard } from '../api/cards'
@@ -23,6 +23,66 @@ function InfoRow({ label, value }: { label: string; value?: string | null }) {
       <span className="text-gray-500 dark:text-gray-400 w-36 shrink-0">{label}</span>
       <span className="text-gray-900 dark:text-gray-100">{value}</span>
     </div>
+  )
+}
+
+const ACCESS_LOG_PAGE_SIZE = 10
+
+function BuildingAccessSection({ personId }: { personId: string }) {
+  const [offset, setOffset] = useState(0)
+  const { data, isLoading } = useQuery({
+    queryKey: ['access-log', personId, offset],
+    queryFn: () => getAccessLog(personId, { limit: ACCESS_LOG_PAGE_SIZE, offset }),
+  })
+
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const from = total === 0 ? 0 : offset + 1
+  const to = Math.min(offset + ACCESS_LOG_PAGE_SIZE, total)
+
+  return (
+    <Card>
+      <CardHeader title="Building Access" subtitle="Date and time this person entered or left, via the door reader" />
+      {isLoading ? (
+        <p className="text-sm text-gray-400 py-4 text-center">Loading…</p>
+      ) : items.length === 0 ? (
+        <p className="text-sm text-gray-400 py-4 text-center">No recorded taps yet.</p>
+      ) : (
+        <div className="space-y-1">
+          {items.map(e => {
+            const dt = new Date(e.timestamp)
+            const Icon = e.direction === 'in' ? LogIn : LogOut
+            return (
+              <div key={e.id} className="flex items-center gap-3 py-2 border-b border-gray-50 dark:border-gray-800 last:border-0">
+                <Icon className={`h-4 w-4 shrink-0 ${e.granted ? (e.direction === 'in' ? 'text-green-600' : 'text-blue-500') : 'text-red-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900 dark:text-gray-100">
+                    {e.direction === 'in' ? 'Entered' : 'Left'}
+                    <span className="text-gray-400 dark:text-gray-500 font-normal"> · {dt.toLocaleDateString()} at {dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                  </p>
+                  {!e.granted && e.reason && (
+                    <p className="text-xs text-red-500">Denied — {e.reason}</p>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {total > ACCESS_LOG_PAGE_SIZE && (
+        <div className="flex items-center justify-between mt-3 text-sm text-gray-500 dark:text-gray-400">
+          <span>{from}–{to} of {total}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - ACCESS_LOG_PAGE_SIZE))}>
+              <ChevronLeft className="h-4 w-4" /> Prev
+            </Button>
+            <Button size="sm" variant="secondary" disabled={to >= total} onClick={() => setOffset(offset + ACCESS_LOG_PAGE_SIZE)}>
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
   )
 }
 
@@ -489,6 +549,8 @@ export function PersonDetailPage() {
               </div>
             </Card>
           )}
+
+          <BuildingAccessSection personId={id!} />
         </div>
       </div>
 
