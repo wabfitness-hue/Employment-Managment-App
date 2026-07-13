@@ -19,6 +19,7 @@ import { ImportPage } from './pages/ImportPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { AccessPage } from './pages/AccessPage'
 import { AuditPage } from './pages/AuditPage'
+import { DoorPage } from './pages/DoorPage'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean }> {
   state = { hasError: false }
@@ -104,6 +105,7 @@ export default function App() {
             <Route path="/import" element={<ImportPage />} />
             <Route path="/access" element={<AccessPage />} />
             <Route path="/audit" element={<AuditPage />} />
+            <Route path="/door" element={<DoorPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/settings/outlook" element={<SettingsPage />} />
           </Route>

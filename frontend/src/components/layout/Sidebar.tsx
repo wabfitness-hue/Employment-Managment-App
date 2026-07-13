@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { clsx } from 'clsx'
 import {
   LayoutDashboard, Users, FileText, Upload,
-  CreditCard, Settings, Wifi, Shield, LogOut, ScrollText
+  CreditCard, Settings, Wifi, Shield, LogOut, ScrollText, DoorOpen
 } from 'lucide-react'
 import { useAuthStore } from '../../store/auth'
 import { useBridgeStore } from '../../store/bridge'
@@ -14,6 +14,8 @@ const navItems = [
   { to: '/cards',      label: 'ID Cards',    icon: CreditCard },
   { to: '/import',     label: 'Import',      icon: Upload },
   { to: '/access',     label: 'Access',      icon: Shield },
+  // Same access level as the backend's door-tap endpoint (require_hr_or_above)
+  { to: '/door',       label: 'Door',        icon: DoorOpen, roles: ['super_admin', 'hr_admin'] },
   // IT/Super admins only — audit log is sensitive
   { to: '/audit',      label: 'Audit log',   icon: ScrollText, roles: ['super_admin', 'it_admin'] },
   { to: '/settings',   label: 'Settings',    icon: Settings },

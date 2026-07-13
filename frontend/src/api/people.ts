@@ -41,8 +41,26 @@ export interface NfcLookupResult {
   person: Person
 }
 
-export const lookupByNfc = (uid: string) =>
-  api.get<NfcLookupResult>(`/people/nfc/${uid}`).then(r => r.data)
+export const lookupByNfc = (uid: string, direction?: 'in' | 'out') =>
+  api.get<NfcLookupResult>(`/people/nfc/${uid}`, { params: direction ? { direction } : undefined }).then(r => r.data)
+
+export interface AccessLogEntry {
+  id: string
+  direction: 'in' | 'out'
+  granted: boolean
+  reason: string | null
+  timestamp: string
+}
+
+export interface AccessLogPage {
+  total: number
+  limit: number
+  offset: number
+  items: AccessLogEntry[]
+}
+
+export const getAccessLog = (personId: string, params?: { limit?: number; offset?: number }) =>
+  api.get<AccessLogPage>(`/people/${personId}/access-log`, { params }).then(r => r.data)
 
 export const getDepartments = () =>
   api.get<string[]>('/people/departments').then(r => r.data)

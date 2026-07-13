@@ -224,7 +224,7 @@ export type BridgeStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
 
 export interface BridgeState {
   status: BridgeStatus
-  nfc: { available: boolean; reader: string | null }
+  nfc: { available: boolean; reader: string | null; direction?: 'in' | 'out' }
   printer: { available: boolean; name: string | null; type: string }
   lastTap?: string
 }

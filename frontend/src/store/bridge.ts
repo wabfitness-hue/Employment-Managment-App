@@ -18,8 +18,8 @@ interface BridgeStore extends BridgeState {
   /** Resolves when the bridge confirms the print, rejects with the bridge's error message otherwise. */
   sendPrint: (pdfB64: string, requestId: string, copies?: number, printer?: PrintTarget) => Promise<void>
   sendReadOnce: (requestId: string) => void
-  onTap?: (uid: string) => void
-  setOnTap: (cb: ((uid: string) => void) | undefined) => void
+  onTap?: (uid: string, direction: 'in' | 'out') => void
+  setOnTap: (cb: ((uid: string, direction: 'in' | 'out') => void) | undefined) => void
 }
 
 export const useBridgeStore = create<BridgeStore>((set, get) => {
@@ -62,8 +62,9 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
               break
             case 'nfc_tap':
               if (typeof msg.uid === 'string' && msg.uid.length > 0 && msg.uid.length <= 64) {
+                const direction: 'in' | 'out' = msg.direction === 'out' ? 'out' : 'in'
                 set({ lastTap: msg.uid })
-                get().onTap?.(msg.uid)
+                get().onTap?.(msg.uid, direction)
               }
               break
             case 'print_ok': {
