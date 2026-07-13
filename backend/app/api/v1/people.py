@@ -167,6 +167,17 @@ def list_people(
 
 # ── CSV export ────────────────────────────────────────────────────────────────
 
+def _csv_safe(value: str) -> str:
+    """
+    Neutralise CSV/formula injection: if a cell starts with a character Excel
+    or Sheets treats as a formula trigger (=, +, -, @, tab, CR), prefix it with
+    a single quote so it's read as plain text instead of executed as a formula.
+    """
+    if value and value[0] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 @router.get("/export.csv")
 def export_people_csv(
     request: Request,
@@ -201,9 +212,10 @@ def export_people_csv(
     for p in people:
         contract = p.current_contract
         w.writerow([
-            p.employee_id, p.first_name, p.last_name, p.email,
-            p.person_type.value, p.job_title, p.department, p.floor or "",
-            p.company.name if p.company else "",
+            _csv_safe(p.employee_id), _csv_safe(p.first_name), _csv_safe(p.last_name),
+            _csv_safe(p.email), p.person_type.value, _csv_safe(p.job_title),
+            _csv_safe(p.department), _csv_safe(p.floor or ""),
+            _csv_safe(p.company.name if p.company else ""),
             p.status.value, p.card_status or "active",
             contract.end_date.isoformat() if contract else "",
             "yes" if p.nfc_uid else "no",

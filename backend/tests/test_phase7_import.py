@@ -540,6 +540,15 @@ class TestPeopleExport:
         assert "attachment" in r.headers.get("content-disposition", "")
         assert r.text.splitlines()[0].startswith("Employee ID,First Name,Last Name,Email")
 
+    def test_csv_safe_neutralises_formula_triggers(self):
+        from app.api.v1.people import _csv_safe
+        assert _csv_safe("=cmd|'/c calc'!A1") == "'=cmd|'/c calc'!A1"
+        assert _csv_safe("+1+1") == "'+1+1"
+        assert _csv_safe("-1") == "'-1"
+        assert _csv_safe("@SUM(1,1)") == "'@SUM(1,1)"
+        assert _csv_safe("Engineering") == "Engineering"  # untouched
+        assert _csv_safe("") == ""
+
 
 # ── Printers CRUD ─────────────────────────────────────────────────────────────
 

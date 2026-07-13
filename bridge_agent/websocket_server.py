@@ -27,6 +27,8 @@ except ImportError:
     from websockets.server import WebSocketServerProtocol  # type: ignore[no-redef]
     _LEGACY = True
 
+import re
+
 from . import protocol
 from .config import WS_HOST, WS_PORT, BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE
 from .nfc_reader import NFCReader
@@ -38,6 +40,29 @@ _MAX_WS_MESSAGE_BYTES = 50 * 1024 * 1024   # 50 MB — websockets library limit
 _MAX_PDF_B64_BYTES = 40 * 1024 * 1024      # 40 MB base64 PDF
 _MAX_CONNECTIONS_PER_IP = 5
 _RATE_LIMIT_WINDOW_SECS = 60
+
+# Matches the backend's printer IP validator (app/api/v1/printers.py _IP_RE) so
+# a Zebra print target is checked the same way at both creation and print time.
+_IP_RE = re.compile(
+    r"^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$"
+)
+
+
+def _is_valid_ip(value: str) -> bool:
+    return bool(_IP_RE.match(value))
+
+
+def _is_safe_printer_name(value: str) -> bool:
+    """
+    Reject values that could be misread as a flag by the printer subprocess
+    (SumatraPDF / lp) or contain control characters. A real OS printer name is
+    plain text and never starts with '-' or contains newlines/nulls.
+    """
+    if not value or value.startswith("-"):
+        return False
+    if any(ord(c) < 0x20 for c in value):
+        return False
+    return len(value) <= 255
 
 
 class BridgeServer:
@@ -170,6 +195,14 @@ class BridgeServer:
         Pick which printer to use for this print job. If the client specified a
         target (per-print picker in the app), use that; otherwise fall back to
         the bridge's configured default printer.
+
+        The client is an already-authenticated websocket peer, but we still
+        re-validate the target here rather than trusting it blindly — the
+        frontend is expected to only ever forward values sourced from the
+        vetted /printers list, but this is the bridge's own trust boundary
+        (it's what actually opens a TCP connection / shells out to print), so a
+        malformed or malicious target must be rejected here too, not just at
+        printer-creation time in the backend.
         """
         target_info = msg.get("printer")
         if not isinstance(target_info, dict):
@@ -177,9 +210,12 @@ class BridgeServer:
 
         target_type = target_info.get("target_type")
         target = target_info.get("target", "")
-        if target_type == "zebra" and target:
+        if not isinstance(target, str):
+            return self._printer
+
+        if target_type == "zebra" and target and _is_valid_ip(target):
             return ZebraPrinter(host=target)
-        if target_type == "os" and target:
+        if target_type == "os" and target and _is_safe_printer_name(target):
             return OSPrintQueuePrinter(name=target)
         return self._printer
 
