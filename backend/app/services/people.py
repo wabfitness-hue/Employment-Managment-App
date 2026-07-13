@@ -332,6 +332,47 @@ def evaluate_card_access(person: Person, tapped_uid: Optional[str] = None) -> tu
     return True, None
 
 
+def record_access_log_entry(
+    db: Session,
+    person: Person,
+    direction: str,
+    granted: bool,
+    reason: Optional[str] = None,
+    nfc_uid: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> "AccessLogEntry":
+    """Persist one building in/out event — powers the profile's access history."""
+    from app.models.access_log import AccessLogEntry, AccessDirection
+    entry = AccessLogEntry(
+        person_id=person.id,
+        direction=AccessDirection(direction),
+        granted=granted,
+        reason=reason,
+        nfc_uid=nfc_uid,
+        device_id=device_id,
+    )
+    db.add(entry)
+    db.flush()
+    return entry
+
+
+def get_access_log(db: Session, person_id: str, limit: int = 50, offset: int = 0):
+    """Paginated in/out history for a person, newest first."""
+    from app.models.access_log import AccessLogEntry
+    try:
+        pid = uuid.UUID(person_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid person ID format.")
+
+    query = db.query(AccessLogEntry).filter(AccessLogEntry.person_id == pid)
+    total = query.count()
+    items = (
+        query.order_by(AccessLogEntry.timestamp.desc())
+        .offset(offset).limit(limit).all()
+    )
+    return total, items
+
+
 def get_person_or_404(db: Session, person_id: str) -> Person:
     try:
         uid = uuid.UUID(person_id)

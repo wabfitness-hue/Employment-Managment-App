@@ -30,7 +30,7 @@ except ImportError:
 import re
 
 from . import protocol
-from .config import WS_HOST, WS_PORT, BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE
+from .config import WS_HOST, WS_PORT, BRIDGE_SECRET, ALLOW_INSECURE_BRIDGE, READER_DIRECTION
 from .nfc_reader import NFCReader
 from .card_printer import CardPrinter, OSPrintQueuePrinter, ZebraPrinter
 
@@ -169,8 +169,9 @@ class BridgeServer:
         msg_type = msg.get("type", "")
 
         if msg_type == "status":
+            nfc_status = {**self._nfc.status(), "direction": READER_DIRECTION}
             await ws.send(protocol.encode(
-                protocol.make_status(self._nfc.status(), self._printer.status())
+                protocol.make_status(nfc_status, self._printer.status())
             ))
 
         elif msg_type == "print_card":
@@ -279,7 +280,7 @@ class BridgeServer:
 
     def _on_nfc_tap(self, uid: str) -> None:
         """Called from the NFC reader thread — schedule broadcast on the event loop."""
-        msg = protocol.encode(protocol.make_nfc_tap(uid))
+        msg = protocol.encode(protocol.make_nfc_tap(uid, direction=READER_DIRECTION))
         for client in list(self._authenticated_clients):
             asyncio.get_event_loop().call_soon_threadsafe(
                 asyncio.ensure_future, self._safe_send(client, msg)

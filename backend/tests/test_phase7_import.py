@@ -620,3 +620,87 @@ class TestPrinters:
             "label": "   ", "target_type": "os", "target": "Something",
         })
         assert r.status_code == 422
+
+
+# ── Building access log — HTTP wiring (get_by_nfc direction + access-log endpoint) ──
+
+@pytest.fixture
+def nfc_client(client):
+    """A person with an NFC card, plus an HR-admin session to tap/read their log."""
+    from app.database import get_db
+    from app.core.dependencies import require_hr_or_above, require_any_role
+    from app.models.app_user import AppUser, UserRole
+    from app.models.company import Company
+    from app.models.id_prefix import IdPrefix, PersonType
+    from app.services.people import create_person
+    from app.api.v1.schemas.people import PersonCreate
+    from datetime import date
+
+    db = client.app.dependency_overrides[get_db]()
+    hr = AppUser(id=uuid.uuid4(), email="hr-nfc@test.com", display_name="HR",
+                 password_hash="x", role=UserRole.hr_admin)
+    db.add(hr); db.commit()
+
+    company = Company(name="Acme NFC Co", is_main_company=True)
+    db.add(company); db.flush()
+    prefix = IdPrefix(prefix="N9", label="NFC Test", applies_to=PersonType.employee, next_sequence=1)
+    db.add(prefix); db.flush()
+    db.commit()
+
+    person = create_person(db, PersonCreate(
+        person_type=PersonType.employee, prefix_id=str(prefix.id),
+        first_name="Nora", last_name="Fox", email="nora.fox@acme.com",
+        job_title="Analyst", department="Finance",
+        company_id=str(company.id), contract_start=date.today(),
+    ), str(hr.id))
+    person.nfc_uid = "TAPUID001"
+    from app.models.person import PersonStatus
+    person.status = PersonStatus.active  # new people default to "pending"; must be active to tap in
+    db.commit()
+
+    client.app.dependency_overrides[require_hr_or_above] = lambda: hr
+    client.app.dependency_overrides[require_any_role] = lambda: hr
+    yield client, person
+    client.app.dependency_overrides.pop(require_hr_or_above, None)
+    client.app.dependency_overrides.pop(require_any_role, None)
+
+
+class TestBuildingAccessLog:
+    def test_tap_with_direction_is_recorded(self, nfc_client):
+        client, person = nfc_client
+        r = client.get(f"/api/v1/people/nfc/{person.nfc_uid}", params={"direction": "in"})
+        assert r.status_code == 200
+        assert r.json()["access_granted"] is True
+
+        r2 = client.get(f"/api/v1/people/{person.id}/access-log")
+        assert r2.status_code == 200
+        data = r2.json()
+        assert data["total"] == 1
+        assert data["items"][0]["direction"] == "in"
+        assert data["items"][0]["granted"] is True
+
+    def test_tap_without_direction_not_recorded(self, nfc_client):
+        client, person = nfc_client
+        r = client.get(f"/api/v1/people/nfc/{person.nfc_uid}")
+        assert r.status_code == 200
+
+        r2 = client.get(f"/api/v1/people/{person.id}/access-log")
+        assert r2.json()["total"] == 0
+
+    def test_invalid_direction_rejected(self, nfc_client):
+        client, person = nfc_client
+        r = client.get(f"/api/v1/people/nfc/{person.nfc_uid}", params={"direction": "sideways"})
+        assert r.status_code == 422
+
+    def test_access_log_requires_auth(self, client):
+        assert client.get("/api/v1/people/00000000-0000-0000-0000-000000000000/access-log").status_code in (401, 403)
+
+    def test_in_then_out_ordering(self, nfc_client):
+        client, person = nfc_client
+        client.get(f"/api/v1/people/nfc/{person.nfc_uid}", params={"direction": "in"})
+        client.get(f"/api/v1/people/nfc/{person.nfc_uid}", params={"direction": "out"})
+        r = client.get(f"/api/v1/people/{person.id}/access-log")
+        items = r.json()["items"]
+        assert len(items) == 2
+        assert items[0]["direction"] == "out"  # newest first
+        assert items[1]["direction"] == "in"

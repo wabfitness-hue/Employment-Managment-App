@@ -447,3 +447,48 @@ class TestPersonAccessAuthorization:
         hr = AppUser(email="hr@x.com", display_name="HR",
                      password_hash="x", role=UserRole.hr_admin)
         authorize_person_access(hr, self._P("Engineering"))  # no raise
+
+
+# ── Building access log (in/out history) ──────────────────────────────────────
+
+class TestAccessLog:
+    def test_record_and_read_back(self, db, main_company, dir_prefix, dir_profile, hr_admin):
+        from app.services.people import record_access_log_entry, get_access_log
+        person = create_person(db, _emp_payload(main_company, dir_prefix), str(hr_admin.id))
+
+        record_access_log_entry(db, person, "in", granted=True, nfc_uid="ABC123")
+        record_access_log_entry(db, person, "out", granted=True, nfc_uid="ABC123")
+
+        total, entries = get_access_log(db, str(person.id))
+        assert total == 2
+        # newest first
+        assert entries[0].direction.value == "out"
+        assert entries[1].direction.value == "in"
+        assert all(e.granted for e in entries)
+
+    def test_denied_tap_recorded_with_reason(self, db, main_company, dir_prefix, dir_profile, hr_admin):
+        from app.services.people import record_access_log_entry, get_access_log
+        person = create_person(db, _emp_payload(main_company, dir_prefix), str(hr_admin.id))
+
+        record_access_log_entry(db, person, "in", granted=False, reason="Card reported lost")
+
+        total, entries = get_access_log(db, str(person.id))
+        assert total == 1
+        assert entries[0].granted is False
+        assert entries[0].reason == "Card reported lost"
+
+    def test_pagination(self, db, main_company, dir_prefix, dir_profile, hr_admin):
+        from app.services.people import record_access_log_entry, get_access_log
+        person = create_person(db, _emp_payload(main_company, dir_prefix), str(hr_admin.id))
+        for i in range(5):
+            record_access_log_entry(db, person, "in" if i % 2 == 0 else "out", granted=True)
+
+        total, page1 = get_access_log(db, str(person.id), limit=2, offset=0)
+        assert total == 5
+        assert len(page1) == 2
+
+    def test_invalid_person_id_raises_422(self, db):
+        from app.services.people import get_access_log
+        with pytest.raises(HTTPException) as exc:
+            get_access_log(db, "not-a-uuid")
+        assert exc.value.status_code == 422

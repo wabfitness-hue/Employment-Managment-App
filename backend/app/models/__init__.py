@@ -10,6 +10,7 @@ from .card_event import CardEvent
 from .access import AccessZone, AccessProfile, AccessProfileZone, PersonAccess, PersonAccessZone
 from .outlook_token import OutlookToken
 from .printer import Printer, PrinterTargetType
+from .access_log import AccessLogEntry, AccessDirection
 
 __all__ = [
     "Base",
@@ -29,4 +30,6 @@ __all__ = [
     "OutlookToken",
     "Printer",
     "PrinterTargetType",
+    "AccessLogEntry",
+    "AccessDirection",
 ]

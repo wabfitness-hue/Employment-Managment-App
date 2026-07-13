@@ -58,11 +58,25 @@ def db(engine):
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limit():
-    """The rate limiter keeps in-memory state at module level (Redis fallback);
-    clear it before each test so lockouts don't leak across tests."""
+    """
+    Clear rate-limit state before each test so lockouts don't leak across tests.
+    Covers both the in-memory fallback (module-level dicts) AND real Redis, since
+    tests running inside the backend container hit the same Redis instance the
+    app uses — without this, repeated test runs against the same test email
+    (e.g. "nobody@example.com") can trigger a real lockout that then fails
+    unrelated tests with no apparent cause.
+    """
     from app.core import rate_limit
     rate_limit._attempts.clear()
     rate_limit._lockouts.clear()
+    r = rate_limit._redis()
+    if r is not None:
+        try:
+            keys = r.keys("login:*")
+            if keys:
+                r.delete(*keys)
+        except Exception:
+            pass  # best-effort — don't fail tests over cleanup
     yield
 
 

@@ -248,6 +248,8 @@ def list_departments(
 def get_by_nfc(
     nfc_uid: str,
     request: Request,
+    direction: Optional[str] = Query(None, pattern="^(in|out)$"),
+    device_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: AppUser = Depends(require_hr_or_above),
 ):
@@ -255,6 +257,12 @@ def get_by_nfc(
     Reader/kiosk lookup. Returns an access decision alongside the person, so a
     lost/stolen/faulty card (or an inactive holder) is denied at the door even
     though the card physically reads.
+
+    `direction` (in/out) identifies which physical reader this tap came from —
+    one bridge agent = one reader/barrier-side, configured via READER_DIRECTION.
+    When provided, the tap is recorded as a building access event (powers the
+    "Building Access" history on the person's profile); omit it for lookups
+    that aren't a real door tap (e.g. manual testing).
 
     Restricted to HR-admin-or-above: this returns a full person record for any
     card UID (a door-reader/security function), so it must not be reachable by
@@ -274,6 +282,11 @@ def get_by_nfc(
         },
         ip_address=_client_ip(request),
     )
+    if direction:
+        svc.record_access_log_entry(
+            db, person, direction, granted,
+            reason=denied_reason, nfc_uid=nfc_uid, device_id=device_id,
+        )
     db.commit()
     return {
         "access_granted": granted,
@@ -292,6 +305,35 @@ def get_person(
     person = svc.get_person_or_404(db, person_id)
     svc.authorize_person_access(current_user, person)
     return _build_response(person, db)
+
+
+@router.get("/{person_id}/access-log")
+def get_person_access_log(
+    person_id: str,
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: AppUser = Depends(require_any_role),
+):
+    """Building in/out history for a person's profile (paginated, newest first)."""
+    person = svc.get_person_or_404(db, person_id)
+    svc.authorize_person_access(current_user, person)
+    total, entries = svc.get_access_log(db, person_id, limit=limit, offset=offset)
+    return {
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "items": [
+            {
+                "id": str(e.id),
+                "direction": e.direction.value,
+                "granted": e.granted,
+                "reason": e.reason,
+                "timestamp": e.timestamp.isoformat() if e.timestamp else None,
+            }
+            for e in entries
+        ],
+    }
 
 
 # ── Update ────────────────────────────────────────────────────────────────────

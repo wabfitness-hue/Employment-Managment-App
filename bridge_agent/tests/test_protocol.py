@@ -43,7 +43,11 @@ class TestMessageBuilders:
 
     def test_make_nfc_tap(self):
         msg = make_nfc_tap("A1B2C3D4")
-        assert msg == {"type": "nfc_tap", "uid": "A1B2C3D4"}
+        assert msg == {"type": "nfc_tap", "uid": "A1B2C3D4", "direction": "in"}  # defaults to "in"
+
+    def test_make_nfc_tap_out_direction(self):
+        msg = make_nfc_tap("A1B2C3D4", direction="out")
+        assert msg == {"type": "nfc_tap", "uid": "A1B2C3D4", "direction": "out"}
 
     def test_make_print_ok(self):
         msg = make_print_ok("req-001")

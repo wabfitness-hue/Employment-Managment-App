@@ -15,7 +15,7 @@ Bridge agent → Web app:
   {"type": "auth_ok"}
   {"type": "auth_fail", "reason": "..."}
   {"type": "status", "nfc": {...}, "printer": {...}}
-  {"type": "nfc_tap", "uid": "A1B2C3D4"}           — unsolicited on card tap
+  {"type": "nfc_tap", "uid": "A1B2C3D4", "direction": "in"|"out"}  — unsolicited on card tap; direction is this bridge's configured reader side
   {"type": "nfc_read_result", "request_id": "...", "uid": "A1B2C3D4"}
   {"type": "print_ok",    "request_id": "..."}
   {"type": "print_error", "request_id": "...", "error": "..."}
@@ -41,8 +41,8 @@ def make_status(nfc_info: dict, printer_info: dict) -> dict:
     return {"type": "status", "nfc": nfc_info, "printer": printer_info}
 
 
-def make_nfc_tap(uid: str) -> dict:
-    return {"type": "nfc_tap", "uid": uid}
+def make_nfc_tap(uid: str, direction: str = "in") -> dict:
+    return {"type": "nfc_tap", "uid": uid, "direction": direction}
 
 
 def make_print_ok(request_id: str) -> dict:

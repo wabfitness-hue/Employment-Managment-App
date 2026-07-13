@@ -35,6 +35,13 @@ ALLOW_INSECURE_BRIDGE: bool = os.getenv("ALLOW_INSECURE_BRIDGE", "").lower() in 
 # NFC reader settings
 NFC_POLL_INTERVAL_MS: int = int(os.getenv("NFC_POLL_INTERVAL_MS", "250"))
 
+# Which side of a barrier/door this reader sits on ("in" or "out"). One bridge
+# agent = one physical reader, so buildings with separate entry/exit readers
+# (e.g. a barrier) run one bridge instance per reader, each configured with its
+# own direction. Defaults to "in" for the common single-reader setup.
+_READER_DIRECTION_RAW = os.getenv("READER_DIRECTION", "in").strip().lower()
+READER_DIRECTION: str = _READER_DIRECTION_RAW if _READER_DIRECTION_RAW in ("in", "out") else "in"
+
 # Printer settings
 PRINTER_NAME: str = os.getenv("PRINTER_NAME", "")          # blank = auto-detect
 PRINTER_TYPE: str = os.getenv("PRINTER_TYPE", "auto")      # auto | zebra | fargo | evolis | magicard | os
