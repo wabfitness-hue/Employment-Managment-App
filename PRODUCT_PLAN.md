@@ -119,6 +119,15 @@ accepted trade-off of not requiring specific certified hardware (see §4).
 ## 7. Phased roadmap (effort is indicative, not a promise)
 
 1. Collapse the stack — embed DB, drop Redis, backend as a bundled process.
+   - **Half A (software collapse) — DONE 2026-07-14.** Backend now optionally
+     serves the frontend directly (no Nginx), runs the scheduler in-process (no
+     scheduler container), and needs no Redis (in-process fallbacks). Proven via
+     `docker-compose.desktop.yml` running as just db + app (2 pieces vs 6). All
+     env-gated, so the normal 6-service stack is unchanged.
+   - **Half B (package into a native executable) — NOT STARTED, higher risk.**
+     PyInstaller bundling of the Python app + heavy native deps, an *embedded*
+     Postgres (replacing the Docker `db`) whose lifecycle the app manages. This
+     is the genuinely uncertain part; expect build-environment iteration.
 2. Native launcher + installer — **Windows first**.
 3. Licensing + activation (online/offline).
 4. Payments + distribution channel.

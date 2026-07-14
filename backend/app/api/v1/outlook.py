@@ -41,35 +41,57 @@ logger = logging.getLogger("outlook")
 
 from app.core.request_ip import client_ip as _client_ip
 
-# ── OAuth state store (Redis, shared across workers, short TTL) ─────────────────
+# ── OAuth state store ─────────────────────────────────────────────────────────
 # Holds {owner_id, code_verifier} per state so the CSRF `state` and the PKCE
-# verifier survive the round-trip to Microsoft even with multiple web workers.
+# verifier survive the round-trip to Microsoft. Uses Redis when available (so it
+# works across multiple web workers in the full-stack setup); falls back to a
+# per-process in-memory store when Redis is absent — correct for the single-
+# process desktop build, and safe otherwise since OAuth state is short-lived.
 _STATE_TTL = 600  # 10 minutes
+_mem_state: dict[str, tuple[float, str]] = {}  # state -> (expires_at, json payload)
 
 
-def _oauth_redis() -> _redis_lib.Redis:
-    return _redis_lib.Redis.from_url(
-        settings.REDIS_URL, decode_responses=True,
-        socket_connect_timeout=2, socket_timeout=2,
-    )
+def _oauth_redis() -> "_redis_lib.Redis | None":
+    try:
+        r = _redis_lib.Redis.from_url(
+            settings.REDIS_URL, decode_responses=True,
+            socket_connect_timeout=2, socket_timeout=2,
+        )
+        r.ping()
+        return r
+    except Exception:
+        return None
 
 
 def _store_oauth_state(state: str, owner_id: str, verifier: str) -> None:
-    _oauth_redis().set(
-        f"oauth:state:{state}",
-        json.dumps({"owner_id": owner_id, "verifier": verifier}),
-        ex=_STATE_TTL, nx=True,
-    )
+    payload = json.dumps({"owner_id": owner_id, "verifier": verifier})
+    r = _oauth_redis()
+    if r is not None:
+        r.set(f"oauth:state:{state}", payload, ex=_STATE_TTL, nx=True)
+        return
+    # in-memory fallback (single process)
+    import time
+    _mem_state[state] = (time.time() + _STATE_TTL, payload)
 
 
 def _pop_oauth_state(state: str) -> Optional[dict]:
     r = _oauth_redis()
-    key = f"oauth:state:{state}"
-    val = r.get(key)
-    if val is None:
+    if r is not None:
+        key = f"oauth:state:{state}"
+        val = r.get(key)
+        if val is None:
+            return None
+        r.delete(key)  # single-use
+        return json.loads(val)
+    # in-memory fallback
+    import time
+    entry = _mem_state.pop(state, None)
+    if entry is None:
         return None
-    r.delete(key)  # single-use
-    return json.loads(val)
+    expires_at, payload = entry
+    if time.time() > expires_at:
+        return None
+    return json.loads(payload)
 
 
 def _pkce_pair() -> tuple[str, str]:

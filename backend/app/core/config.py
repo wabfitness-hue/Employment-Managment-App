@@ -25,6 +25,16 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     SECRET_KEY: str = _DEV_SECRET
     ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1"]
+
+    # ── Single-process "desktop" mode (collapsed stack) ───────────────────────
+    # When set, the backend serves the built frontend from this directory (SPA +
+    # assets) so no separate Nginx is needed. Blank = don't serve the frontend
+    # (the default full-stack setup keeps Nginx).
+    SERVE_FRONTEND: str = ""
+    # When true, run the daily scheduler as an in-process background task instead
+    # of a separate container. MUST only be enabled with a single worker, or the
+    # job fires once per worker. Blank/false = external scheduler container.
+    RUN_SCHEDULER_IN_PROCESS: bool = False
     # Comma-separated IPs of trusted reverse proxies (Nginx container).
     # X-Forwarded-For is only trusted when the direct TCP client is in this list.
     TRUSTED_PROXY_IPS: str = "127.0.0.1"

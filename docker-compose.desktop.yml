@@ -1,0 +1,62 @@
+# Collapsed "desktop-shaped" stack — proves the single-process architecture the
+# real bundled desktop app will use. Just TWO pieces instead of six:
+#
+#   db   — PostgreSQL (this is what the desktop app will bundle/embed)
+#   app  — the backend, which now ALSO:
+#            • serves the built frontend directly (no Nginx)
+#            • runs the daily scheduler in-process (no scheduler container)
+#            • needs no Redis (rate-limit / refresh-token / OAuth-state all fall
+#              back to in-process memory)
+#
+# Run isolated from the normal 6-service stack (its own project + volumes + port):
+#   docker compose -p ems-desktop -f docker-compose.desktop.yml up -d --build
+#   → open http://localhost:8080/
+#
+# This is a stepping stone, NOT the final product: the real deliverable replaces
+# the Docker `db` with an embedded Postgres and packages `app` as a native
+# executable (Half B — separate, higher-risk phase).
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ems_db
+      POSTGRES_USER:     ems_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db_data_desktop:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ems_user -d ems_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: employee-management-app-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL:             postgresql://ems_user:${POSTGRES_PASSWORD}@db:5432/ems_db
+      REDIS_URL:                ""                    # no Redis — in-process fallbacks
+      SERVE_FRONTEND:           /app/static           # backend serves the SPA
+      RUN_SCHEDULER_IN_PROCESS: "true"                # in-process daily sweep
+      TRUSTED_PROXY_IPS:        "127.0.0.1"
+      # Same-origin now (backend serves the SPA), so CORS only needs localhost.
+      CORS_ORIGINS:             "http://localhost:8080"
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"]
+    volumes:
+      - photos_desktop:/app/photos
+      - ./frontend/dist:/app/static:ro
+    ports:
+      - "8080:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db_data_desktop:
+  photos_desktop:

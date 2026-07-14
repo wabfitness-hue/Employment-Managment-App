@@ -1,9 +1,12 @@
+import asyncio
 import logging
+import os
 import traceback
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .api.v1 import auth as auth_router
@@ -47,6 +50,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # In the collapsed single-process (desktop) build there is no separate
+    # scheduler container, so run the daily sweep in-process as a background task.
+    task = None
+    if settings.RUN_SCHEDULER_IN_PROCESS:
+        from app.jobs.scheduler import main as scheduler_main
+        task = asyncio.create_task(scheduler_main())
+        logger.info("in-process scheduler started")
+    try:
+        yield
+    finally:
+        if task:
+            task.cancel()
+
+
 def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
@@ -54,6 +73,7 @@ def create_app() -> FastAPI:
         docs_url="/api/docs" if settings.DEBUG else None,
         redoc_url=None,
         openapi_url="/api/openapi.json" if settings.DEBUG else None,
+        lifespan=lifespan,
     )
 
     app.add_middleware(SecurityHeadersMiddleware)
@@ -91,6 +111,31 @@ def create_app() -> FastAPI:
             )
         logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+    # ── Serve the built frontend (collapsed / desktop mode only) ──────────────
+    # When SERVE_FRONTEND points at the built SPA, the backend serves it directly
+    # so no separate Nginx is needed. Registered LAST so it never shadows the API
+    # routes above. Real files (JS/CSS/assets) are served as-is; every other path
+    # returns index.html so client-side (React Router) routes resolve.
+    frontend_dir = settings.SERVE_FRONTEND
+    if frontend_dir and os.path.isdir(frontend_dir):
+        index_file = os.path.join(frontend_dir, "index.html")
+
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            if full_path.startswith("api/"):
+                raise HTTPException(status_code=404, detail="Not found")
+            candidate = os.path.normpath(os.path.join(frontend_dir, full_path))
+            # guard against path traversal outside the frontend dir
+            if (
+                full_path
+                and candidate.startswith(os.path.abspath(frontend_dir))
+                and os.path.isfile(candidate)
+            ):
+                return FileResponse(candidate)
+            return FileResponse(index_file)
+
+        logger.info("serving frontend from %s", frontend_dir)
 
     return app
 

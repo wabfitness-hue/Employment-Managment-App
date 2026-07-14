@@ -313,3 +313,29 @@ class TestPKCE:
     def test_pairs_are_unique(self):
         from app.api.v1.outlook import _pkce_pair
         assert _pkce_pair()[0] != _pkce_pair()[0]
+
+
+class TestOAuthStateFallback:
+    """OAuth state must survive without Redis (single-process desktop mode)."""
+    def test_store_and_pop_in_memory_when_redis_absent(self, monkeypatch):
+        from app.api.v1 import outlook
+        # Force the Redis path off -> exercises the in-process fallback
+        monkeypatch.setattr(outlook, "_oauth_redis", lambda: None)
+        outlook._mem_state.clear()
+
+        outlook._store_oauth_state("st-abc", "owner-1", "verifier-xyz")
+        got = outlook._pop_oauth_state("st-abc")
+        assert got == {"owner_id": "owner-1", "verifier": "verifier-xyz"}
+
+    def test_state_is_single_use(self, monkeypatch):
+        from app.api.v1 import outlook
+        monkeypatch.setattr(outlook, "_oauth_redis", lambda: None)
+        outlook._mem_state.clear()
+        outlook._store_oauth_state("st-once", "o", "v")
+        assert outlook._pop_oauth_state("st-once") is not None
+        assert outlook._pop_oauth_state("st-once") is None  # consumed
+
+    def test_unknown_state_returns_none(self, monkeypatch):
+        from app.api.v1 import outlook
+        monkeypatch.setattr(outlook, "_oauth_redis", lambda: None)
+        assert outlook._pop_oauth_state("never-stored") is None
