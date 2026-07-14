@@ -34,7 +34,7 @@ from app.core.dependencies import (
 )
 from app.api.v1.schemas.auth import (
     LoginRequest, MFAVerifyRequest, MFALoginRequest, TokenResponse, MFASetupResponse,
-    RecoveryCodesResponse, RecoveryCodesStatus,
+    RecoveryCodesResponse, RecoveryCodesStatus, RegenerateRecoveryCodesRequest,
     RefreshRequest, ChangePasswordRequest, CreateUserRequest, UserResponse,
 )
 
@@ -220,13 +220,18 @@ def enable_mfa(
 
 @router.post("/mfa/recovery-codes", response_model=RecoveryCodesResponse)
 def regenerate_recovery_codes(
+    body: RegenerateRecoveryCodesRequest,
     db: Session = Depends(get_db),
     user: AppUser = Depends(get_current_user),
 ):
     """Generate a fresh set of recovery codes (invalidates any existing set).
-    Requires a fully authenticated (MFA-verified) session."""
+    Requires a fully authenticated (MFA-verified) session AND the current
+    password, so a hijacked-but-still-valid session token alone can't mint new
+    standing recovery access."""
     if not user.mfa_enabled:
         raise HTTPException(status_code=400, detail="Enable MFA before generating recovery codes.")
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Incorrect password.")
     codes = _set_recovery_codes(user)
     log_action(db, "mfa_recovery_codes_regenerated", user_id=str(user.id))
     db.commit()

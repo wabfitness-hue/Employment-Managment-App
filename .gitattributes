@@ -1,0 +1,13 @@
+# Normalize line endings: store everything as LF in the repo, let Git convert
+# to the platform's native ending on checkout only where it actually matters.
+# This silences the "LF will be replaced by CRLF" warnings on every commit.
+* text=auto eol=lf
+
+# Binary files — never touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
+*.dump binary
+*.tar.gz binary

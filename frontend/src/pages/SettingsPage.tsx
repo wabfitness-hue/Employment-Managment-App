@@ -44,14 +44,25 @@ function SecuritySection() {
 
   // ── Recovery codes ──
   const [newCodes, setNewCodes] = useState<string[] | null>(null)
+  const [regenPrompt, setRegenPrompt] = useState(false)
+  const [regenPwd, setRegenPwd] = useState('')
+  const [regenError, setRegenError] = useState('')
   const { data: recoveryStatus } = useQuery({
     queryKey: ['recovery-status'],
     queryFn: getRecoveryCodesStatus,
     enabled: !!user?.mfa_enabled,
   })
   const regenMutation = useMutation({
-    mutationFn: regenerateRecoveryCodes,
-    onSuccess: (d) => { setNewCodes(d.codes); qc.invalidateQueries({ queryKey: ['recovery-status'] }) },
+    mutationFn: () => regenerateRecoveryCodes(regenPwd),
+    onSuccess: (d) => {
+      setNewCodes(d.codes)
+      setRegenPrompt(false); setRegenPwd(''); setRegenError('')
+      qc.invalidateQueries({ queryKey: ['recovery-status'] })
+    },
+    onError: (e: unknown) => {
+      const detail = (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+      setRegenError(detail ?? 'Incorrect password.')
+    },
   })
 
   // ── Change password ──
@@ -177,13 +188,33 @@ function SecuritySection() {
           </div>
           {newCodes ? (
             <RecoveryCodesBox codes={newCodes} onDone={() => setNewCodes(null)} />
+          ) : regenPrompt ? (
+            <div className="space-y-2 max-w-sm">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Confirm your password to continue</label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={regenPwd}
+                onChange={e => setRegenPwd(e.target.value)}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-800 text-sm focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none"
+              />
+              {regenError && <p className="text-xs text-red-600">{regenError}</p>}
+              <div className="flex gap-2">
+                <Button size="sm" loading={regenMutation.isPending} disabled={!regenPwd} onClick={() => regenMutation.mutate()}>
+                  Confirm
+                </Button>
+                <Button size="sm" variant="secondary" onClick={() => { setRegenPrompt(false); setRegenPwd(''); setRegenError('') }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="space-y-2">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 One-time codes to sign in if you lose your authenticator. Keep them somewhere safe.
                 {recoveryStatus && !recoveryStatus.configured && ' You have none yet — generate a set now.'}
               </p>
-              <Button size="sm" variant="secondary" loading={regenMutation.isPending} onClick={() => regenMutation.mutate()}>
+              <Button size="sm" variant="secondary" onClick={() => setRegenPrompt(true)}>
                 <RefreshCw className="h-4 w-4" /> {recoveryStatus?.configured ? 'Generate new codes' : 'Generate recovery codes'}
               </Button>
               {recoveryStatus?.configured && (

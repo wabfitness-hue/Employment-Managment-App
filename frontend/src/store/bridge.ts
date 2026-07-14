@@ -84,7 +84,15 @@ export const useBridgeStore = create<BridgeStore>((set, get) => {
         } catch { /* ignore parse errors */ }
       }
 
-      ws.onclose = () => set({ status: 'disconnected', ws: null })
+      ws.onclose = () => {
+        // Fail any in-flight print requests immediately rather than making the
+        // caller wait out the 30s timeout for a connection that's already gone.
+        for (const [id, pending] of pendingPrints) {
+          pending.reject(new Error('Bridge disconnected before the print completed.'))
+          pendingPrints.delete(id)
+        }
+        set({ status: 'disconnected', ws: null })
+      }
       ws.onerror = () => set({ status: 'error' })
 
       set({ ws })

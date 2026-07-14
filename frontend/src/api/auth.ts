@@ -23,8 +23,8 @@ export const setupMfa = () =>
 export const enableMfa = (totp_code: string) =>
   api.post<{ message: string; recovery_codes: string[] }>('/auth/mfa/enable', { totp_code }).then(r => r.data)
 
-export const regenerateRecoveryCodes = () =>
-  api.post<{ codes: string[]; remaining: number }>('/auth/mfa/recovery-codes').then(r => r.data)
+export const regenerateRecoveryCodes = (currentPassword: string) =>
+  api.post<{ codes: string[]; remaining: number }>('/auth/mfa/recovery-codes', { current_password: currentPassword }).then(r => r.data)
 
 export const getRecoveryCodesStatus = () =>
   api.get<{ configured: boolean; remaining: number }>('/auth/mfa/recovery-codes').then(r => r.data)

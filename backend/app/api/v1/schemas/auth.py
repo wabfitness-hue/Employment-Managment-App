@@ -33,6 +33,13 @@ class MFALoginRequest(BaseModel):
         return v.replace(" ", "").strip() if isinstance(v, str) else v
 
 
+class RegenerateRecoveryCodesRequest(BaseModel):
+    """Regenerating recovery codes is a sensitive action — require re-entering
+    the current password so a hijacked-but-still-valid session can't silently
+    mint new standing recovery access."""
+    current_password: str
+
+
 class RecoveryCodesResponse(BaseModel):
     codes: list[str]
     remaining: int

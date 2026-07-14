@@ -780,3 +780,49 @@ class TestBuildingAccessLog:
         assert len(items) == 2
         assert items[0]["direction"] == "out"  # newest first
         assert items[1]["direction"] == "in"
+
+
+# ── Recovery-code regeneration requires current password ─────────────────────
+
+class TestRecoveryCodeRegenRequiresPassword:
+    def _make_mfa_user(self, client):
+        """Create a real user via the setup wizard, then enable MFA on it,
+        returning (access_token, password) for further calls."""
+        import pyotp
+        r = client.post("/api/v1/setup/company", json={"name": "PW Test Co"})
+        r = client.post("/api/v1/setup/admin", json={
+            "email": "regen-owner@test.com", "password": "Str0ng!Pass#2026",
+            "full_name": "Regen Owner",
+        })
+        data = r.json()
+        token = pyotp.TOTP(data["mfa_secret"]).now()
+        r = client.post("/api/v1/setup/complete", json={"admin_id": data["admin_id"], "mfa_token": token})
+        return r.json()["access_token"], "Str0ng!Pass#2026"
+
+    def test_wrong_password_rejected(self, client):
+        token, _ = self._make_mfa_user(client)
+        r = client.post(
+            "/api/v1/auth/mfa/recovery-codes",
+            json={"current_password": "totally-wrong"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 401
+
+    def test_correct_password_succeeds(self, client):
+        token, password = self._make_mfa_user(client)
+        r = client.post(
+            "/api/v1/auth/mfa/recovery-codes",
+            json={"current_password": password},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 200
+        assert len(r.json()["codes"]) == 10
+
+    def test_missing_password_rejected(self, client):
+        token, _ = self._make_mfa_user(client)
+        r = client.post(
+            "/api/v1/auth/mfa/recovery-codes",
+            json={},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert r.status_code == 422
