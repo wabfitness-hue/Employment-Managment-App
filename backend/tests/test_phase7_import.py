@@ -512,6 +512,82 @@ class TestAuditLog:
         assert "login_failed" in r.json()["actions"]
 
 
+@pytest.fixture
+def super_admin_client(client):
+    """`client` with a real DB-backed super_admin user (deletion writes an
+    audit entry referencing user_id, so the user must actually exist for the FK)."""
+    from app.database import get_db
+    from app.core.dependencies import require_super_admin, require_it_or_above
+    from app.models.app_user import AppUser, UserRole
+    db = client.app.dependency_overrides[get_db]()
+    user = AppUser(id=uuid.uuid4(), email="root@test.com", display_name="Root",
+                    password_hash="x", role=UserRole.super_admin)
+    db.add(user); db.commit()
+    client.app.dependency_overrides[require_super_admin] = lambda: user
+    client.app.dependency_overrides[require_it_or_above] = lambda: user
+    yield client
+    client.app.dependency_overrides.pop(require_super_admin, None)
+    client.app.dependency_overrides.pop(require_it_or_above, None)
+
+
+class TestAuditDeletion:
+    def test_delete_requires_super_admin(self, it_client):
+        # it_admin can view but not delete
+        r = it_client.delete("/api/v1/audit/00000000-0000-0000-0000-000000000000")
+        assert r.status_code in (401, 403)
+
+    def test_delete_single_entry(self, super_admin_client):
+        client = super_admin_client
+        client.post("/api/v1/auth/login", json={"email": "nobody@example.com", "password": "wrong"})
+        entry_id = client.get("/api/v1/audit").json()["items"][0]["id"]
+
+        r = client.delete(f"/api/v1/audit/{entry_id}")
+        assert r.status_code == 200
+        assert r.json()["deleted"] is True
+
+        # gone...
+        remaining_ids = [i["id"] for i in client.get("/api/v1/audit").json()["items"]]
+        assert entry_id not in remaining_ids
+        # ...but the deletion itself is now in the log
+        assert any(i["action"] == "audit_entry_deleted" for i in client.get("/api/v1/audit").json()["items"])
+
+    def test_delete_nonexistent_entry_404(self, super_admin_client):
+        r = super_admin_client.delete("/api/v1/audit/00000000-0000-0000-0000-000000000000")
+        assert r.status_code == 404
+
+    def test_delete_invalid_id_422(self, super_admin_client):
+        r = super_admin_client.delete("/api/v1/audit/not-a-uuid")
+        assert r.status_code == 422
+
+    def test_purge_requires_super_admin(self, it_client):
+        r = it_client.post("/api/v1/audit/purge", json={"older_than_days": 30})
+        assert r.status_code in (401, 403)
+
+    def test_purge_removes_old_entries_only(self, super_admin_client):
+        from app.database import get_db
+        from app.models.audit_log import AuditLog
+        from datetime import datetime, timedelta, timezone
+        client = super_admin_client
+        db = client.app.dependency_overrides[get_db]()
+
+        old = AuditLog(action="old_event", timestamp=datetime.now(timezone.utc) - timedelta(days=100))
+        recent = AuditLog(action="recent_event", timestamp=datetime.now(timezone.utc))
+        db.add(old); db.add(recent); db.commit()
+
+        r = client.post("/api/v1/audit/purge", json={"older_than_days": 30})
+        assert r.status_code == 200
+        assert r.json()["deleted"] == 1  # only the 100-day-old one
+
+        actions = [i["action"] for i in client.get("/api/v1/audit").json()["items"]]
+        assert "recent_event" in actions
+        assert "old_event" not in actions
+        assert "audit_log_purged" in actions  # the purge itself is logged
+
+    def test_purge_rejects_invalid_days(self, super_admin_client):
+        r = super_admin_client.post("/api/v1/audit/purge", json={"older_than_days": 0})
+        assert r.status_code == 422
+
+
 # ── People CSV export ─────────────────────────────────────────────────────────
 
 @pytest.fixture

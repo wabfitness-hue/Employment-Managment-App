@@ -24,3 +24,9 @@ export const listAudit = (params: { limit?: number; offset?: number; action?: st
 
 export const listAuditActions = () =>
   api.get<{ actions: string[] }>('/audit/actions').then(r => r.data)
+
+export const deleteAuditEntry = (id: string) =>
+  api.delete(`/audit/${id}`).then(r => r.data)
+
+export const purgeAuditEntries = (olderThanDays: number) =>
+  api.post<{ deleted: number }>('/audit/purge', { older_than_days: olderThanDays }).then(r => r.data)
